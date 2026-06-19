@@ -1,10 +1,10 @@
-# 💰 Finance Care
+#  Finance Care
 
 > Aplicativo de controle financeiro pessoal desenvolvido com Flutter + Firebase. Gerencie seu salário, contas, cartões de crédito, assinaturas e anotações em um só lugar.
 
 ---
 
-## 📱 Telas
+##  Telas
 
 | Tela | Descrição |
 |------|-----------|
@@ -17,21 +17,21 @@
 
 ---
 
-## ✨ Funcionalidades
+##  Funcionalidades
 
-- 🔐 Autenticação com e-mail e senha (Firebase Auth)
-- 💵 Cadastro de salário e resumo financeiro em tempo real
-- 💳 Cartões de crédito com limite, uso e cores personalizadas
-- 🔔 Assinaturas mensais com visualização proporcional
-- 📄 Contas a pagar com data de vencimento e urgência colorida
-- 📊 Gráficos: pizza de distribuição do salário + barras de uso por cartão
-- 📝 Bloco de notas com criação, edição e exclusão
-- 🌙 Suporte a tema claro e escuro (automático pelo sistema)
-- ☁️ Dados salvos em tempo real no Firestore
+-  Autenticação com e-mail e senha (Firebase Auth)
+-  Cadastro de salário e resumo financeiro em tempo real
+-  Cartões de crédito com limite, uso e cores personalizadas
+-  Assinaturas mensais com visualização proporcional
+-  Contas a pagar com data de vencimento e urgência colorida
+-  Gráficos: pizza de distribuição do salário + barras de uso por cartão
+-  Bloco de notas com criação, edição e exclusão
+-  Suporte a tema claro e escuro (automático pelo sistema)
+-  Dados salvos em tempo real no Firestore
 
 ---
 
-## 🛠️ Tecnologias
+##  Tecnologias
 
 - [Flutter](https://flutter.dev/) 3.x
 - [Firebase Auth](https://firebase.google.com/docs/auth)
@@ -84,7 +84,7 @@ lib/
 
 ---
 
-## 🚀 Como Rodar o Projeto
+##  Como Rodar o Projeto
 
 ### Pré-requisitos
 
@@ -139,7 +139,7 @@ flutter run
 
 ---
 
-## 🔒 Regras do Firestore
+##  Regras do Firestore
 
 Copie estas regras no console do Firebase (Firestore → Regras):
 
@@ -156,7 +156,7 @@ service cloud.firestore {
 
 ---
 
-## 📦 Dependências (pubspec.yaml)
+##  Dependências (pubspec.yaml)
 
 ```yaml
 dependencies:
@@ -172,7 +172,7 @@ dependencies:
 
 ---
 
-## 🗄️ Estrutura do Firestore
+##  Estrutura do Firestore
 
 ```
 users/
