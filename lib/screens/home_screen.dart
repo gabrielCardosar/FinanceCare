@@ -16,6 +16,7 @@ import 'bills_payable_screen.dart';
 import 'notes_screen.dart';
 import 'charts_screen.dart';
 import 'monthly_reports_screen.dart';
+import 'calculator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -43,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<NotesProvider>().loadNotes(uid);
       context.read<MonthlyReportProvider>().loadReports(uid);
 
-      // Verifica virada de mês logo após carregar todos os dados
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkMonthReset(uid));
     }
   }
@@ -129,7 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      // ─── MENU HAMBÚRGUER ─────────────────────────────────────────
       drawer: Drawer(
         child: Column(
           children: [
@@ -158,8 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text('Finance Care',
-                      style:
-                          TextStyle(color: Colors.white70, fontSize: 12)),
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
                 ],
               ),
             ),
@@ -209,6 +207,14 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             _DrawerItem(
+              icon: Icons.calculate_outlined,
+              label: 'Calculadora',
+              onTap: () {
+                Navigator.pop(context);
+                _navigate(const CalculatorScreen());
+              },
+            ),
+            _DrawerItem(
               icon: Icons.calendar_month_outlined,
               label: 'Relatórios Mensais',
               onTap: () {
@@ -231,106 +237,113 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      // ─── CORPO ───────────────────────────────────────────────────
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Resumo Financeiro',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _showSalaryDialog,
-              child: AccountCard(
-                title: 'Salário',
-                value: _currencyFormat.format(account?.salary ?? 0),
-                subtitle: 'Toque para editar',
-                valueColor: AppColors.success,
-                icon: Icons.edit,
+      // ✅ FIX: body com padding bottom para não conflitar com barra Android
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Resumo Financeiro',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 12),
-            AccountCard(
-              title: 'Contas a Pagar',
-              value: _currencyFormat.format(totalBillsPending),
-              subtitle:
-                  '${billsProvider.pendingBills.length} pendentes',
-              valueColor: AppColors.danger,
-            ),
-            const SizedBox(height: 12),
-            AccountCard(
-              title: 'Assinaturas',
-              value: _currencyFormat.format(totalSubscriptions),
-              subtitle: '${subscriptions.length} assinaturas ativas',
-              valueColor: AppColors.warning,
-            ),
-            const SizedBox(height: 12),
-            AccountCard(
-              title: 'Saldo Final',
-              value: _currencyFormat.format(finalBalance),
-              subtitle: finalBalance < 0
-                  ? 'Você está no vermelho'
-                  : 'Saldo disponível',
-              valueColor:
-                  finalBalance < 0 ? AppColors.danger : AppColors.success,
-            ),
-            const SizedBox(height: 28),
-            Text(
-              'Acesso Rápido',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.0,
-              children: [
-                _QuickCard(
-                    icon: Icons.credit_card,
-                    label: 'Cartões',
-                    color: AppColors.primary,
-                    onTap: () => _navigate(const CardsScreen())),
-                _QuickCard(
-                    icon: Icons.subscriptions,
-                    label: 'Assinaturas',
-                    color: AppColors.secondary,
-                    onTap: () => _navigate(const SubscriptionsScreen())),
-                _QuickCard(
-                    icon: Icons.receipt_long,
-                    label: 'Contas',
-                    color: AppColors.danger,
-                    badge: urgentCount > 0 ? urgentCount.toString() : null,
-                    onTap: () => _navigate(const BillsPayableScreen())),
-                _QuickCard(
-                    icon: Icons.bar_chart,
-                    label: 'Gráficos',
-                    color: AppColors.success,
-                    onTap: () => _navigate(const ChartsScreen())),
-                _QuickCard(
-                    icon: Icons.note_alt,
-                    label: 'Notas',
-                    color: AppColors.warning,
-                    onTap: () => _navigate(const NotesScreen())),
-                _QuickCard(
-                    icon: Icons.calendar_month,
-                    label: 'Relatórios',
-                    color: const Color(0xFF0891B2),
-                    onTap: () => _navigate(const MonthlyReportsScreen())),
-              ],
-            ),
-          ],
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: _showSalaryDialog,
+                child: AccountCard(
+                  title: 'Salário',
+                  value: _currencyFormat.format(account?.salary ?? 0),
+                  subtitle: 'Toque para editar',
+                  valueColor: AppColors.success,
+                  icon: Icons.edit,
+                ),
+              ),
+              const SizedBox(height: 12),
+              AccountCard(
+                title: 'Contas a Pagar',
+                value: _currencyFormat.format(totalBillsPending),
+                subtitle: '${billsProvider.pendingBills.length} pendentes',
+                valueColor: AppColors.danger,
+              ),
+              const SizedBox(height: 12),
+              AccountCard(
+                title: 'Assinaturas',
+                value: _currencyFormat.format(totalSubscriptions),
+                subtitle: '${subscriptions.length} assinaturas ativas',
+                valueColor: AppColors.warning,
+              ),
+              const SizedBox(height: 12),
+              AccountCard(
+                title: 'Saldo Final',
+                value: _currencyFormat.format(finalBalance),
+                subtitle: finalBalance < 0
+                    ? 'Você está no vermelho'
+                    : 'Saldo disponível',
+                valueColor:
+                    finalBalance < 0 ? AppColors.danger : AppColors.success,
+              ),
+              const SizedBox(height: 28),
+              Text(
+                'Acesso Rápido',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              // ✅ FIX: GridView com childAspectRatio ajustado para não cortar
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.95,
+                children: [
+                  _QuickCard(
+                      icon: Icons.credit_card,
+                      label: 'Cartões',
+                      color: AppColors.primary,
+                      onTap: () => _navigate(const CardsScreen())),
+                  _QuickCard(
+                      icon: Icons.subscriptions,
+                      label: 'Assinaturas',
+                      color: AppColors.secondary,
+                      onTap: () => _navigate(const SubscriptionsScreen())),
+                  _QuickCard(
+                      icon: Icons.receipt_long,
+                      label: 'Contas',
+                      color: AppColors.danger,
+                      badge: urgentCount > 0 ? urgentCount.toString() : null,
+                      onTap: () => _navigate(const BillsPayableScreen())),
+                  _QuickCard(
+                      icon: Icons.bar_chart,
+                      label: 'Gráficos',
+                      color: AppColors.success,
+                      onTap: () => _navigate(const ChartsScreen())),
+                  _QuickCard(
+                      icon: Icons.note_alt,
+                      label: 'Notas',
+                      color: AppColors.warning,
+                      onTap: () => _navigate(const NotesScreen())),
+                  _QuickCard(
+                      icon: Icons.calculate,
+                      label: 'Calculadora',
+                      color: const Color(0xFF7C3AED),
+                      onTap: () => _navigate(const CalculatorScreen())),
+                  _QuickCard(
+                      icon: Icons.calendar_month,
+                      label: 'Relatórios',
+                      color: const Color(0xFF0891B2),
+                      onTap: () => _navigate(const MonthlyReportsScreen())),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

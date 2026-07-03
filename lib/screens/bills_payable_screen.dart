@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/bills_payable_provider.dart';
+import '../providers/home_provider.dart';
 import '../models/bill_payable_model.dart';
 import '../utils/constants.dart';
 
@@ -102,7 +103,6 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Conta Fixa toggle
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
@@ -133,9 +133,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                               'Conta Fixa',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: isFixed
-                                    ? AppColors.primary
-                                    : null,
+                                color: isFixed ? AppColors.primary : null,
                               ),
                             ),
                             const Text(
@@ -167,8 +165,8 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                         padding:
                             const EdgeInsets.symmetric(horizontal: 3),
                         child: GestureDetector(
-                          onTap: () => setDialog(
-                              () => selectedUrgency = level),
+                          onTap: () =>
+                              setDialog(() => selectedUrgency = level),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding:
@@ -256,6 +254,66 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
     );
   }
 
+  // ✅ NOVO: confirmar pagamento de conta e descontar do saldo
+  void _confirmPayBill(BillPayableModel bill) {
+    final homeProvider = context.read<HomeProvider>();
+    final account = homeProvider.account;
+    if (account == null || bill.isPaid) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pagar Conta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Conta: ${bill.name}'),
+            const SizedBox(height: 8),
+            Text(
+              'Valor: ${_currencyFormat.format(bill.amount)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Saldo atual: ${_currencyFormat.format(account.salary)}',
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Saldo após pagamento: ${_currencyFormat.format(account.salary - bill.amount)}',
+              style: TextStyle(
+                color: account.salary - bill.amount < 0
+                    ? AppColors.danger
+                    : AppColors.success,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success),
+            onPressed: () {
+              // Marca como paga
+              context.read<BillsPayableProvider>().togglePaid(bill);
+              // Desconta do saldo
+              final newSalary = account.salary - bill.amount;
+              homeProvider.updateAccount(
+                  account.copyWith(salary: newSalary));
+              Navigator.pop(ctx);
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList(List<BillPayableModel> bills) {
     if (bills.isEmpty) {
       return Center(
@@ -304,6 +362,8 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                       onPressed: () => Navigator.pop(ctx, false),
                       child: const Text('Não')),
                   ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.danger),
                       onPressed: () => Navigator.pop(ctx, true),
                       child: const Text('Sim')),
                 ],
@@ -313,7 +373,9 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
           onDismissed: (_) {
             final uid = context.read<AuthProvider>().user?.uid;
             if (uid != null) {
-              context.read<BillsPayableProvider>().deleteBill(uid, bill.id);
+              context
+                  .read<BillsPayableProvider>()
+                  .deleteBill(uid, bill.id);
             }
           },
           child: Container(
@@ -323,9 +385,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
               borderRadius: BorderRadius.circular(12),
               border: Border(
                 left: BorderSide(
-                  color: bill.isPaid
-                      ? Colors.grey
-                      : bill.urgency.color,
+                  color: bill.isPaid ? Colors.grey : bill.urgency.color,
                   width: 4,
                 ),
               ),
@@ -339,11 +399,19 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
               padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
               child: Row(
                 children: [
-                  // Botão confirmar pago
+                  // ✅ Botão pagar: toca para abrir confirmação com desconto
                   GestureDetector(
-                    onTap: () => context
-                        .read<BillsPayableProvider>()
-                        .togglePaid(bill),
+                    onTap: () {
+                      if (bill.isPaid) {
+                        // Se já está paga, só desmarca (sem devolver saldo)
+                        context
+                            .read<BillsPayableProvider>()
+                            .togglePaid(bill);
+                      } else {
+                        // Se não está paga, abre confirmação de pagamento
+                        _confirmPayBill(bill);
+                      }
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 38,
@@ -370,7 +438,6 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // Info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,8 +459,9 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                                   decoration: bill.isPaid
                                       ? TextDecoration.lineThrough
                                       : null,
-                                  color:
-                                      bill.isPaid ? Colors.grey : null,
+                                  color: bill.isPaid
+                                      ? Colors.grey
+                                      : null,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -440,10 +508,21 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                             ),
                           ],
                         ),
+                        // ✅ NOVO: aviso se vai descontar do saldo
+                        if (!bill.isPaid)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              'Toque ✓ para pagar e descontar do saldo',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  // Valor + editar
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -505,51 +584,55 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
         onPressed: () => _showBillDialog(),
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          // Banner totais
-          Container(
-            padding: const EdgeInsets.symmetric(
-                vertical: 10, horizontal: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                AppColors.danger,
-                AppColors.danger.withOpacity(0.75),
-              ]),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  vertical: 10, horizontal: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  AppColors.danger,
+                  AppColors.danger.withOpacity(0.75),
+                ]),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _BannerStat(
+                      label: 'Pendente',
+                      value: _currencyFormat
+                          .format(billsProvider.totalPending),
+                      color: Colors.white),
+                  Container(
+                      width: 1, height: 30, color: Colors.white30),
+                  _BannerStat(
+                      label: 'Pago',
+                      value:
+                          _currencyFormat.format(billsProvider.totalPaid),
+                      color: Colors.greenAccent),
+                  Container(
+                      width: 1, height: 30, color: Colors.white30),
+                  _BannerStat(
+                      label: 'Fixas',
+                      value:
+                          '${billsProvider.fixedBills.length}',
+                      color: Colors.lightBlueAccent),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _BannerStat(
-                    label: 'Pendente',
-                    value: _currencyFormat.format(billsProvider.totalPending),
-                    color: Colors.white),
-                Container(
-                    width: 1, height: 30, color: Colors.white30),
-                _BannerStat(
-                    label: 'Pago',
-                    value: _currencyFormat.format(billsProvider.totalPaid),
-                    color: Colors.greenAccent),
-                Container(
-                    width: 1, height: 30, color: Colors.white30),
-                _BannerStat(
-                    label: 'Fixas',
-                    value: '${billsProvider.fixedBills.length}',
-                    color: Colors.lightBlueAccent),
-              ],
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildList(allBills),
+                  _buildList(pendingBills),
+                  _buildList(paidBills),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildList(allBills),
-                _buildList(pendingBills),
-                _buildList(paidBills),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

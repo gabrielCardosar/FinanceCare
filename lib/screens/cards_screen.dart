@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cards_provider.dart';
+import '../providers/home_provider.dart';
 import '../models/card_model.dart';
 import '../utils/constants.dart';
 
@@ -61,6 +62,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   controller: cardNameCtrl,
                   decoration:
                       const InputDecoration(label: Text('Nome do cartão')),
+                  onChanged: (_) => setDialog(() {}),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -131,7 +133,6 @@ class _CardsScreenState extends State<CardsScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 14),
-                // Preview
                 Container(
                   height: 56,
                   decoration: BoxDecoration(
@@ -184,8 +185,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       content: Text('Preencha todos os campos')));
                   return;
                 }
-                final uid =
-                    context.read<AuthProvider>().user?.uid;
+                final uid = context.read<AuthProvider>().user?.uid;
                 if (uid != null) {
                   if (isEditing) {
                     final updated = CardModel(
@@ -223,6 +223,86 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
+  // ✅ NOVO: marcar fatura como paga desconta do saldo
+  void _showPayInvoiceDialog(CardModel card) {
+    final homeProvider = context.read<HomeProvider>();
+    final account = homeProvider.account;
+    if (account == null) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pagar Fatura'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Cartão: ${card.cardName}'),
+            const SizedBox(height: 8),
+            Text(
+              'Valor da fatura: ${_currencyFormat.format(card.usedLimit)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Saldo atual: ${_currencyFormat.format(account.salary)}',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Saldo após pagamento: ${_currencyFormat.format(account.salary - card.usedLimit)}',
+              style: TextStyle(
+                color: account.salary - card.usedLimit < 0
+                    ? AppColors.danger
+                    : AppColors.success,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success),
+            onPressed: () {
+              // Desconta do salário e zera o usedLimit do cartão
+              final newSalary = account.salary - card.usedLimit;
+              homeProvider.updateAccount(
+                  account.copyWith(salary: newSalary));
+
+              // Zera o limite usado do cartão
+              final updatedCard = CardModel(
+                id: card.id,
+                uid: card.uid,
+                cardName: card.cardName,
+                bankName: card.bankName,
+                limit: card.limit,
+                usedLimit: 0,
+                createdAt: card.createdAt,
+                colorValue: card.colorValue,
+                invoiceDueDay: card.invoiceDueDay,
+              );
+              context.read<CardsProvider>().updateCard(updatedCard);
+
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                      'Fatura de ${card.cardName} paga! ${_currencyFormat.format(card.usedLimit)} descontados do saldo.'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: const Text('Confirmar Pagamento'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmDelete(CardModel card) {
     showDialog(
       context: context,
@@ -239,9 +319,7 @@ class _CardsScreenState extends State<CardsScreen> {
             onPressed: () {
               final uid = context.read<AuthProvider>().user?.uid;
               if (uid != null) {
-                context
-                    .read<CardsProvider>()
-                    .deleteCard(uid, card.id!);
+                context.read<CardsProvider>().deleteCard(uid, card.id!);
               }
               Navigator.pop(context);
             },
@@ -332,6 +410,15 @@ class _CardsScreenState extends State<CardsScreen> {
                           ),
                           Row(
                             children: [
+                              // ✅ NOVO: botão pagar fatura
+                              if (card.usedLimit > 0)
+                                IconButton(
+                                  icon: const Icon(Icons.payment,
+                                      color: Colors.greenAccent, size: 22),
+                                  tooltip: 'Pagar Fatura',
+                                  onPressed: () =>
+                                      _showPayInvoiceDialog(card),
+                                ),
                               IconButton(
                                 icon: const Icon(Icons.edit,
                                     color: Colors.white70, size: 20),
@@ -347,7 +434,6 @@ class _CardsScreenState extends State<CardsScreen> {
                           ),
                         ],
                       ),
-                      // Vencimento da fatura
                       if (card.invoiceDueDay != null) ...[
                         const SizedBox(height: 8),
                         Container(
@@ -391,8 +477,8 @@ class _CardsScreenState extends State<CardsScreen> {
                                   _currencyFormat.format(card.limit)),
                           _CardInfo(
                               label: 'Utilizado',
-                              value:
-                                  _currencyFormat.format(card.usedLimit),
+                              value: _currencyFormat
+                                  .format(card.usedLimit),
                               align: CrossAxisAlignment.center),
                           _CardInfo(
                               label: 'Disponível',
@@ -426,6 +512,27 @@ class _CardsScreenState extends State<CardsScreen> {
                               pct > 80 ? AppColors.danger : Colors.white),
                         ),
                       ),
+                      // ✅ NOVO: botão pagar fatura visível embaixo
+                      if (card.usedLimit > 0) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(
+                                  color: Colors.white54),
+                            ),
+                            icon: const Icon(Icons.payment, size: 16),
+                            label: Text(
+                              'Pagar Fatura • ${_currencyFormat.format(card.usedLimit)}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            onPressed: () =>
+                                _showPayInvoiceDialog(card),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );

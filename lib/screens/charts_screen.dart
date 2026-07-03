@@ -5,6 +5,7 @@ import '../providers/home_provider.dart';
 import '../providers/subscriptions_provider.dart';
 import '../providers/cards_provider.dart';
 import '../providers/bills_payable_provider.dart';
+import '../models/bill_payable_model.dart';
 import '../utils/constants.dart';
 
 class ChartsScreen extends StatelessWidget {
@@ -366,67 +367,49 @@ class _PiePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter old) => true;
 }
 
-// ── _UrgencyChart ─────────────────────────────────────────────────────────────
-// CORRIGIDO: urgency é String simples ('urgente', 'moderado', 'leve')
-// A linha com b.urgency.label foi removida — compara direto com a string
-
+// ✅ CORRIGIDO: urgency é UrgencyLevel (enum), compara com UrgencyLevel.urgente
 class _UrgencyChart extends StatelessWidget {
-  final List bills;
+  final List<BillPayableModel> bills;
   final NumberFormat currencyFormat;
   const _UrgencyChart({required this.bills, required this.currencyFormat});
 
   @override
   Widget build(BuildContext context) {
+    // ✅ FIX: comparar com enum UrgencyLevel, não com String
     final groups = {
-      'urgente': bills.where((b) => b.urgency == 'urgente').toList(),
-      'moderado': bills.where((b) => b.urgency == 'moderado').toList(),
-      'leve': bills.where((b) => b.urgency == 'leve').toList(),
-    };
-    final colors = {
-      'urgente': AppColors.danger,
-      'moderado': AppColors.warning,
-      'leve': AppColors.success,
-    };
-    final labels = {
-      'urgente': 'Urgente',
-      'moderado': 'Moderado',
-      'leve': 'Leve',
-    };
-    final icons = {
-      'urgente': Icons.error_outline,
-      'moderado': Icons.warning_amber_outlined,
-      'leve': Icons.check_circle_outline,
+      UrgencyLevel.urgente: bills.where((b) => b.urgency == UrgencyLevel.urgente).toList(),
+      UrgencyLevel.moderado: bills.where((b) => b.urgency == UrgencyLevel.moderado).toList(),
+      UrgencyLevel.leve: bills.where((b) => b.urgency == UrgencyLevel.leve).toList(),
     };
 
     return Column(
       children: groups.entries.map((e) {
+        final level = e.key;
         final group = e.value;
-        final total =
-            group.fold<double>(0, (s, b) => s + (b.amount as double));
+        final total = group.fold<double>(0, (s, b) => s + b.amount);
         final count = group.length;
+
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: (colors[e.key] ?? Colors.grey).withOpacity(0.08),
+            color: level.color.withOpacity(0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: (colors[e.key] ?? Colors.grey).withOpacity(0.3),
-            ),
+            border: Border.all(color: level.color.withOpacity(0.3)),
           ),
           child: Row(
             children: [
-              Icon(icons[e.key], color: colors[e.key]),
+              Icon(level.icon, color: level.color),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      labels[e.key] ?? '',
+                      level.label,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: colors[e.key],
+                        color: level.color,
                       ),
                     ),
                     Text(
@@ -440,7 +423,7 @@ class _UrgencyChart extends StatelessWidget {
                 currencyFormat.format(total),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: colors[e.key],
+                  color: level.color,
                 ),
               ),
             ],
