@@ -3,8 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
-  // ✅ FIX: usa try/catch mais amplo para capturar o erro PigeonUserDetails
-  // que ocorre na versão 4.x do firebase_auth com Flutter mais novo
   Future<UserCredential> signUp({
     required String email,
     required String password,
@@ -18,13 +16,11 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
-      // ✅ Captura erro PigeonUserDetails (bug do firebase_auth 4.x)
-      // O usuário foi criado com sucesso mesmo com esse erro
-      // Verifica se o usuário está logado
+      // Bug do firebase_auth 4.x: lança erro PigeonUserDetails mas cria o usuário
+      // Verifica se o usuário foi criado mesmo assim
       final currentUser = _firebaseAuth.currentUser;
       if (currentUser != null) {
-        // Criou com sucesso, erro foi só na resposta — ignoramos
-        // Retorna uma "fake" UserCredential não é possível, então reloga
+        // Usuário criado com sucesso — faz sign in para retornar UserCredential
         return await _firebaseAuth.signInWithEmailAndPassword(
           email: email,
           password: password,

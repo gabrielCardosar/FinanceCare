@@ -34,13 +34,22 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _signup() {
-    if (_formKey.currentState!.validate()) {
-      context.read<AuthProvider>().signUp(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-            confirmPassword: _confirmPasswordController.text,
-          );
+  // ✅ FIX: agora é async e aguarda o resultado
+  Future<void> _signup() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final success = await context.read<AuthProvider>().signUp(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          confirmPassword: _confirmPasswordController.text,
+        );
+
+    // ✅ FIX: se criou com sucesso, o authStateChanges() do AuthProvider
+    // já vai detectar o usuário logado e o Consumer no main.dart
+    // vai redirecionar automaticamente para HomeScreen.
+    // Só precisamos fechar essa tela.
+    if (success && mounted) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -121,6 +130,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (value?.isEmpty ?? true) {
                       return 'Por favor, confirme sua senha';
                     }
+                    if (value != _passwordController.text) {
+                      return 'As senhas não coincidem';
+                    }
                     return null;
                   },
                 ),
@@ -129,13 +141,15 @@ class _SignupScreenState extends State<SignupScreen> {
                   builder: (context, authProvider, _) {
                     if (authProvider.error != null) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(authProvider.error ?? ''),
-                            backgroundColor: AppColors.danger,
-                          ),
-                        );
-                        authProvider.clearError();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(authProvider.error ?? ''),
+                              backgroundColor: AppColors.danger,
+                            ),
+                          );
+                          authProvider.clearError();
+                        }
                       });
                     }
 

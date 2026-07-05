@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/bills_payable_provider.dart';
-import '../providers/home_provider.dart';
 import '../models/bill_payable_model.dart';
 import '../utils/constants.dart';
 
@@ -35,10 +34,9 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
 
   void _showBillDialog({BillPayableModel? bill}) {
     final isEditing = bill != null;
-    final nameCtrl =
-        TextEditingController(text: isEditing ? bill.name : '');
-    final amountCtrl = TextEditingController(
-        text: isEditing ? bill.amount.toString() : '');
+    final nameCtrl = TextEditingController(text: isEditing ? bill.name : '');
+    final amountCtrl =
+        TextEditingController(text: isEditing ? bill.amount.toString() : '');
     DateTime selectedDate = isEditing
         ? bill.dueDate
         : DateTime.now().add(const Duration(days: 7));
@@ -83,8 +81,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                       lastDate: DateTime.now()
                           .add(const Duration(days: 365 * 2)),
                     );
-                    if (picked != null)
-                      setDialog(() => selectedDate = picked);
+                    if (picked != null) setDialog(() => selectedDate = picked);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -104,8 +101,8 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: isFixed
                         ? AppColors.primary.withOpacity(0.1)
@@ -119,28 +116,22 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.push_pin,
-                        color: isFixed ? AppColors.primary : Colors.grey,
-                        size: 20,
-                      ),
+                      Icon(Icons.push_pin,
+                          color: isFixed ? AppColors.primary : Colors.grey,
+                          size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Conta Fixa',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: isFixed ? AppColors.primary : null,
-                              ),
-                            ),
-                            const Text(
-                              'Não será deletada no reset mensal',
-                              style: TextStyle(
-                                  fontSize: 11, color: Colors.grey),
-                            ),
+                            Text('Conta Fixa',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        isFixed ? AppColors.primary : null)),
+                            const Text('Não será deletada no reset mensal',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                           ],
                         ),
                       ),
@@ -162,23 +153,20 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                     final isSelected = level == selectedUrgency;
                     return Expanded(
                       child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
                         child: GestureDetector(
                           onTap: () =>
                               setDialog(() => selectedUrgency = level),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? level.color
                                   : level.color.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
                               border: isSelected
-                                  ? Border.all(
-                                      color: level.color, width: 2)
+                                  ? Border.all(color: level.color, width: 2)
                                   : null,
                             ),
                             child: Column(
@@ -191,12 +179,11 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                                 const SizedBox(height: 4),
                                 Text(level.label,
                                     style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : level.color,
-                                    )),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : level.color)),
                               ],
                             ),
                           ),
@@ -217,12 +204,11 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                 final name = nameCtrl.text.trim();
                 final amount = double.tryParse(amountCtrl.text) ?? 0;
                 if (name.isEmpty || amount == 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Preencha nome e valor')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Preencha nome e valor')));
                   return;
                 }
-                final uid =
-                    context.read<AuthProvider>().user?.uid ?? '';
+                final uid = context.read<AuthProvider>().user?.uid ?? '';
                 if (isEditing) {
                   final updated = bill.copyWith(
                     name: name,
@@ -254,62 +240,21 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
     );
   }
 
-  // ✅ NOVO: confirmar pagamento de conta e descontar do saldo
-  void _confirmPayBill(BillPayableModel bill) {
-    final homeProvider = context.read<HomeProvider>();
-    final account = homeProvider.account;
-    if (account == null || bill.isPaid) return;
+  // ✅ FIX: pagar conta só marca como paga — NÃO mexe no salário
+  // O saldo final já é calculado como: salário - assinaturas - contas PENDENTES
+  // Quando a conta é marcada como paga, ela sai do total pendente automaticamente
+  void _togglePaid(BillPayableModel bill) {
+    context.read<BillsPayableProvider>().togglePaid(bill);
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pagar Conta'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Conta: ${bill.name}'),
-            const SizedBox(height: 8),
-            Text(
-              'Valor: ${_currencyFormat.format(bill.amount)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Saldo atual: ${_currencyFormat.format(account.salary)}',
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Saldo após pagamento: ${_currencyFormat.format(account.salary - bill.amount)}',
-              style: TextStyle(
-                color: account.salary - bill.amount < 0
-                    ? AppColors.danger
-                    : AppColors.success,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success),
-            onPressed: () {
-              // Marca como paga
-              context.read<BillsPayableProvider>().togglePaid(bill);
-              // Desconta do saldo
-              final newSalary = account.salary - bill.amount;
-              homeProvider.updateAccount(
-                  account.copyWith(salary: newSalary));
-              Navigator.pop(ctx);
-            },
-            child: const Text('Confirmar'),
-          ),
-        ],
+    final msg = bill.isPaid
+        ? '${bill.name} marcada como pendente'
+        : '${bill.name} marcada como paga';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor:
+            bill.isPaid ? AppColors.warning : AppColors.success,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -321,8 +266,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.receipt_long,
-                size: 56,
-                color: AppColors.danger.withOpacity(0.3)),
+                size: 56, color: AppColors.danger.withOpacity(0.3)),
             const SizedBox(height: 16),
             const Text('Nenhuma conta aqui',
                 style: TextStyle(color: Colors.grey)),
@@ -373,15 +317,14 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
           onDismissed: (_) {
             final uid = context.read<AuthProvider>().user?.uid;
             if (uid != null) {
-              context
-                  .read<BillsPayableProvider>()
-                  .deleteBill(uid, bill.id);
+              context.read<BillsPayableProvider>().deleteBill(uid, bill.id);
             }
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.darkCardBg : AppColors.lightCardBg,
+              color:
+                  isDark ? AppColors.darkCardBg : AppColors.lightCardBg,
               borderRadius: BorderRadius.circular(12),
               border: Border(
                 left: BorderSide(
@@ -391,27 +334,16 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4),
+                    color: Colors.black.withOpacity(0.05), blurRadius: 4),
               ],
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
               child: Row(
                 children: [
-                  // ✅ Botão pagar: toca para abrir confirmação com desconto
+                  // ✅ Botão de pagar — só marca/desmarca, não desconta do salário
                   GestureDetector(
-                    onTap: () {
-                      if (bill.isPaid) {
-                        // Se já está paga, só desmarca (sem devolver saldo)
-                        context
-                            .read<BillsPayableProvider>()
-                            .togglePaid(bill);
-                      } else {
-                        // Se não está paga, abre confirmação de pagamento
-                        _confirmPayBill(bill);
-                      }
-                    },
+                    onTap: () => _togglePaid(bill),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 38,
@@ -448,8 +380,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                               const Padding(
                                 padding: EdgeInsets.only(right: 4),
                                 child: Icon(Icons.push_pin,
-                                    size: 13,
-                                    color: AppColors.primary),
+                                    size: 13, color: AppColors.primary),
                               ),
                             Expanded(
                               child: Text(
@@ -459,9 +390,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                                   decoration: bill.isPaid
                                       ? TextDecoration.lineThrough
                                       : null,
-                                  color: bill.isPaid
-                                      ? Colors.grey
-                                      : null,
+                                  color: bill.isPaid ? Colors.grey : null,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -501,25 +430,12 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                               ),
                               child: Text(bill.urgency.label,
                                   style: TextStyle(
-                                    fontSize: 10,
-                                    color: bill.urgency.color,
-                                    fontWeight: FontWeight.w600,
-                                  )),
+                                      fontSize: 10,
+                                      color: bill.urgency.color,
+                                      fontWeight: FontWeight.w600)),
                             ),
                           ],
                         ),
-                        // ✅ NOVO: aviso se vai descontar do saldo
-                        if (!bill.isPaid)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Text(
-                              'Toque ✓ para pagar e descontar do saldo',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -531,9 +447,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: bill.isPaid
-                              ? Colors.grey
-                              : AppColors.danger,
+                          color: bill.isPaid ? Colors.grey : AppColors.danger,
                           decoration: bill.isPaid
                               ? TextDecoration.lineThrough
                               : null,
@@ -543,8 +457,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                         onTap: () => _showBillDialog(bill: bill),
                         child: const Padding(
                           padding: EdgeInsets.only(top: 4),
-                          child: Icon(Icons.edit,
-                              size: 16, color: Colors.grey),
+                          child: Icon(Icons.edit, size: 16, color: Colors.grey),
                         ),
                       ),
                     ],
@@ -588,8 +501,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(
-                  vertical: 10, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [
                   AppColors.danger,
@@ -601,22 +513,17 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                 children: [
                   _BannerStat(
                       label: 'Pendente',
-                      value: _currencyFormat
-                          .format(billsProvider.totalPending),
+                      value: _currencyFormat.format(billsProvider.totalPending),
                       color: Colors.white),
-                  Container(
-                      width: 1, height: 30, color: Colors.white30),
+                  Container(width: 1, height: 30, color: Colors.white30),
                   _BannerStat(
                       label: 'Pago',
-                      value:
-                          _currencyFormat.format(billsProvider.totalPaid),
+                      value: _currencyFormat.format(billsProvider.totalPaid),
                       color: Colors.greenAccent),
-                  Container(
-                      width: 1, height: 30, color: Colors.white30),
+                  Container(width: 1, height: 30, color: Colors.white30),
                   _BannerStat(
                       label: 'Fixas',
-                      value:
-                          '${billsProvider.fixedBills.length}',
+                      value: '${billsProvider.fixedBills.length}',
                       color: Colors.lightBlueAccent),
                 ],
               ),
@@ -653,9 +560,7 @@ class _BannerStat extends StatelessWidget {
             style: const TextStyle(color: Colors.white70, fontSize: 11)),
         Text(value,
             style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 14)),
+                color: color, fontWeight: FontWeight.bold, fontSize: 14)),
       ],
     );
   }
