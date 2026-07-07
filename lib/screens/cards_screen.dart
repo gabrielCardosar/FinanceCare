@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cards_provider.dart';
-import '../providers/home_provider.dart';
 import '../models/card_model.dart';
 import '../utils/constants.dart';
 
@@ -37,8 +36,8 @@ class _CardsScreenState extends State<CardsScreen> {
         TextEditingController(text: isEditing ? card.cardName : '');
     final bankNameCtrl =
         TextEditingController(text: isEditing ? card.bankName : '');
-    final limitCtrl = TextEditingController(
-        text: isEditing ? card.limit.toString() : '');
+    final limitCtrl =
+        TextEditingController(text: isEditing ? card.limit.toString() : '');
     final usedLimitCtrl = TextEditingController(
         text: isEditing ? card.usedLimit.toString() : '');
     final invoiceDayCtrl = TextEditingController(
@@ -90,7 +89,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     label: Text('Dia de vencimento da fatura'),
-                    hintText: 'Ex: 15  (deixe vazio se não souber)',
+                    hintText: 'Ex: 15',
                     prefixIcon: Icon(Icons.calendar_today, size: 18),
                   ),
                 ),
@@ -133,8 +132,9 @@ class _CardsScreenState extends State<CardsScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 14),
+                // Preview do cartão
                 Container(
-                  height: 56,
+                  height: 52,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(colors: [
                       Color(selectedColor),
@@ -188,29 +188,27 @@ class _CardsScreenState extends State<CardsScreen> {
                 final uid = context.read<AuthProvider>().user?.uid;
                 if (uid != null) {
                   if (isEditing) {
-                    final updated = CardModel(
-                      id: card.id,
-                      uid: card.uid,
-                      cardName: cardName,
-                      bankName: bankName,
-                      limit: limit,
-                      usedLimit: usedLimit,
-                      createdAt: card.createdAt,
-                      colorValue: selectedColor,
-                      invoiceDueDay: invoiceDay,
-                    );
-                    context.read<CardsProvider>().updateCard(updated);
+                    context.read<CardsProvider>().updateCard(CardModel(
+                          id: card.id,
+                          uid: card.uid,
+                          cardName: cardName,
+                          bankName: bankName,
+                          limit: limit,
+                          usedLimit: usedLimit,
+                          createdAt: card.createdAt,
+                          colorValue: selectedColor,
+                          invoiceDueDay: invoiceDay,
+                        ));
                   } else {
-                    final newCard = CardModel(
-                      uid: uid,
-                      cardName: cardName,
-                      bankName: bankName,
-                      limit: limit,
-                      usedLimit: usedLimit,
-                      colorValue: selectedColor,
-                      invoiceDueDay: invoiceDay,
-                    );
-                    context.read<CardsProvider>().addCard(newCard);
+                    context.read<CardsProvider>().addCard(CardModel(
+                          uid: uid,
+                          cardName: cardName,
+                          bankName: bankName,
+                          limit: limit,
+                          usedLimit: usedLimit,
+                          colorValue: selectedColor,
+                          invoiceDueDay: invoiceDay,
+                        ));
                   }
                 }
                 Navigator.pop(context);
@@ -223,12 +221,9 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // ✅ NOVO: marcar fatura como paga desconta do saldo
+  // ✅ FIX: pagar fatura APENAS zera o usedLimit do cartão
+  // NÃO mexe no salário — o saldo final é calculado automaticamente
   void _showPayInvoiceDialog(CardModel card) {
-    final homeProvider = context.read<HomeProvider>();
-    final account = homeProvider.account;
-    if (account == null) return;
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -243,18 +238,26 @@ class _CardsScreenState extends State<CardsScreen> {
               'Valor da fatura: ${_currencyFormat.format(card.usedLimit)}',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Saldo atual: ${_currencyFormat.format(account.salary)}',
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Saldo após pagamento: ${_currencyFormat.format(account.salary - card.usedLimit)}',
-              style: TextStyle(
-                color: account.salary - card.usedLimit < 0
-                    ? AppColors.danger
-                    : AppColors.success,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.success.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      color: AppColors.success, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'O saldo disponível já descontou essa fatura. Ao pagar, o limite do cartão será liberado.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -268,30 +271,23 @@ class _CardsScreenState extends State<CardsScreen> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success),
             onPressed: () {
-              // Desconta do salário e zera o usedLimit do cartão
-              final newSalary = account.salary - card.usedLimit;
-              homeProvider.updateAccount(
-                  account.copyWith(salary: newSalary));
-
-              // Zera o limite usado do cartão
-              final updatedCard = CardModel(
-                id: card.id,
-                uid: card.uid,
-                cardName: card.cardName,
-                bankName: card.bankName,
-                limit: card.limit,
-                usedLimit: 0,
-                createdAt: card.createdAt,
-                colorValue: card.colorValue,
-                invoiceDueDay: card.invoiceDueDay,
-              );
-              context.read<CardsProvider>().updateCard(updatedCard);
-
+              // ✅ FIX: só zera o usedLimit — não toca no salário
+              context.read<CardsProvider>().updateCard(CardModel(
+                    id: card.id,
+                    uid: card.uid,
+                    cardName: card.cardName,
+                    bankName: card.bankName,
+                    limit: card.limit,
+                    usedLimit: 0,
+                    createdAt: card.createdAt,
+                    colorValue: card.colorValue,
+                    invoiceDueDay: card.invoiceDueDay,
+                  ));
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                      'Fatura de ${card.cardName} paga! ${_currencyFormat.format(card.usedLimit)} descontados do saldo.'),
+                      'Fatura de ${card.cardName} paga! Limite liberado.'),
                   backgroundColor: AppColors.success,
                 ),
               );
@@ -351,7 +347,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   const SizedBox(height: 16),
                   const Text('Nenhum cartão adicionado'),
                   const SizedBox(height: 8),
-                  const Text('Toque no botão + para adicionar'),
+                  const Text('Toque no + para adicionar'),
                 ],
               ),
             )
@@ -390,8 +386,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,26 +399,15 @@ class _CardsScreenState extends State<CardsScreen> {
                               const SizedBox(height: 2),
                               Text(card.bankName,
                                   style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14)),
+                                      color: Colors.white70, fontSize: 14)),
                             ],
                           ),
                           Row(
                             children: [
-                              // ✅ NOVO: botão pagar fatura
-                              if (card.usedLimit > 0)
-                                IconButton(
-                                  icon: const Icon(Icons.payment,
-                                      color: Colors.greenAccent, size: 22),
-                                  tooltip: 'Pagar Fatura',
-                                  onPressed: () =>
-                                      _showPayInvoiceDialog(card),
-                                ),
                               IconButton(
                                 icon: const Icon(Icons.edit,
                                     color: Colors.white70, size: 20),
-                                onPressed: () =>
-                                    _showCardDialog(card: card),
+                                onPressed: () => _showCardDialog(card: card),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete,
@@ -458,7 +442,7 @@ class _CardsScreenState extends State<CardsScreen> {
                                         ? 'Fatura vence HOJE!'
                                         : daysUntil < 0
                                             ? 'Fatura atrasada'
-                                            : 'Fatura em $daysUntil dia${daysUntil != 1 ? 's' : ''}',
+                                            : 'Fatura em $daysUntil dias',
                                 style: const TextStyle(
                                     color: Colors.white, fontSize: 12),
                               ),
@@ -468,29 +452,25 @@ class _CardsScreenState extends State<CardsScreen> {
                       ],
                       const SizedBox(height: 16),
                       Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _CardInfo(
                               label: 'Limite',
-                              value:
-                                  _currencyFormat.format(card.limit)),
+                              value: _currencyFormat.format(card.limit)),
                           _CardInfo(
                               label: 'Utilizado',
-                              value: _currencyFormat
-                                  .format(card.usedLimit),
+                              value: _currencyFormat.format(card.usedLimit),
                               align: CrossAxisAlignment.center),
                           _CardInfo(
                               label: 'Disponível',
-                              value: _currencyFormat
-                                  .format(card.availableLimit),
+                              value:
+                                  _currencyFormat.format(card.availableLimit),
                               align: CrossAxisAlignment.end),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Uso do limite',
                               style: TextStyle(
@@ -512,7 +492,7 @@ class _CardsScreenState extends State<CardsScreen> {
                               pct > 80 ? AppColors.danger : Colors.white),
                         ),
                       ),
-                      // ✅ NOVO: botão pagar fatura visível embaixo
+                      // Botão pagar fatura
                       if (card.usedLimit > 0) ...[
                         const SizedBox(height: 12),
                         SizedBox(
@@ -520,16 +500,14 @@ class _CardsScreenState extends State<CardsScreen> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
-                              side: const BorderSide(
-                                  color: Colors.white54),
+                              side: const BorderSide(color: Colors.white54),
                             ),
                             icon: const Icon(Icons.payment, size: 16),
                             label: Text(
                               'Pagar Fatura • ${_currencyFormat.format(card.usedLimit)}',
                               style: const TextStyle(fontSize: 13),
                             ),
-                            onPressed: () =>
-                                _showPayInvoiceDialog(card),
+                            onPressed: () => _showPayInvoiceDialog(card),
                           ),
                         ),
                       ],
@@ -557,8 +535,7 @@ class _CardInfo extends StatelessWidget {
       crossAxisAlignment: align,
       children: [
         Text(label,
-            style:
-                const TextStyle(color: Colors.white70, fontSize: 12)),
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 4),
         Text(value,
             style: const TextStyle(
