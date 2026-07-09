@@ -2,6 +2,7 @@ class AccountModel {
   final String? id;
   final String uid;
   final double salary;
+  final double extraIncome; // renda extra (fora da renda fixa)
   final List<BillModel> bills;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -10,6 +11,7 @@ class AccountModel {
     this.id,
     required this.uid,
     required this.salary,
+    this.extraIncome = 0,
     this.bills = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -17,12 +19,15 @@ class AccountModel {
         updatedAt = updatedAt ?? DateTime.now();
 
   double get totalBills => bills.fold(0, (sum, bill) => sum + bill.amount);
-  double get balance => salary - totalBills;
+
+  // Renda total = salário + renda extra
+  double get totalIncome => salary + extraIncome;
 
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'salary': salary,
+      'extraIncome': extraIncome,
       'bills': bills.map((b) => b.toMap()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -34,6 +39,7 @@ class AccountModel {
       id: id,
       uid: map['uid'] ?? '',
       salary: (map['salary'] ?? 0).toDouble(),
+      extraIncome: (map['extraIncome'] ?? 0).toDouble(),
       bills: (map['bills'] as List<dynamic>?)
               ?.map((b) => BillModel.fromMap(b as Map<String, dynamic>))
               .toList() ??
@@ -51,6 +57,7 @@ class AccountModel {
     String? id,
     String? uid,
     double? salary,
+    double? extraIncome,
     List<BillModel>? bills,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -59,6 +66,7 @@ class AccountModel {
       id: id ?? this.id,
       uid: uid ?? this.uid,
       salary: salary ?? this.salary,
+      extraIncome: extraIncome ?? this.extraIncome,
       bills: bills ?? this.bills,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

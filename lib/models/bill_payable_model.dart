@@ -47,8 +47,12 @@ class BillPayableModel {
   final DateTime dueDate;
   final UrgencyLevel urgency;
   final bool isPaid;
-  final bool isFixed; // Conta fixa: não é deletada no reset mensal
+  final bool isFixed;
   final DateTime createdAt;
+  // NOVO: validade (mês/ano em que a conta some automaticamente)
+  final DateTime? expiresAt;
+  // NOVO: número de parcelas restantes (null = sem parcelamento)
+  final int? remainingMonths;
 
   BillPayableModel({
     required this.id,
@@ -60,6 +64,8 @@ class BillPayableModel {
     this.isPaid = false,
     this.isFixed = false,
     DateTime? createdAt,
+    this.expiresAt,
+    this.remainingMonths,
   }) : createdAt = createdAt ?? DateTime.now();
 
   bool get isOverdue =>
@@ -67,6 +73,14 @@ class BillPayableModel {
       dueDate.isBefore(DateTime.now().subtract(const Duration(days: 1)));
 
   int get daysUntilDue => dueDate.difference(DateTime.now()).inDays;
+
+  // Conta expirou este mês?
+  bool get isExpiredThisMonth {
+    if (expiresAt == null) return false;
+    final now = DateTime.now();
+    return expiresAt!.year < now.year ||
+        (expiresAt!.year == now.year && expiresAt!.month < now.month);
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -79,6 +93,8 @@ class BillPayableModel {
       'isPaid': isPaid,
       'isFixed': isFixed,
       'createdAt': createdAt.toIso8601String(),
+      'expiresAt': expiresAt?.toIso8601String(),
+      'remainingMonths': remainingMonths,
     };
   }
 
@@ -100,6 +116,10 @@ class BillPayableModel {
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
+      expiresAt: map['expiresAt'] != null
+          ? DateTime.parse(map['expiresAt'])
+          : null,
+      remainingMonths: map['remainingMonths'],
     );
   }
 
@@ -113,6 +133,8 @@ class BillPayableModel {
     bool? isPaid,
     bool? isFixed,
     DateTime? createdAt,
+    Object? expiresAt = _sentinel,
+    Object? remainingMonths = _sentinel,
   }) {
     return BillPayableModel(
       id: id ?? this.id,
@@ -124,6 +146,12 @@ class BillPayableModel {
       isPaid: isPaid ?? this.isPaid,
       isFixed: isFixed ?? this.isFixed,
       createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt == _sentinel ? this.expiresAt : expiresAt as DateTime?,
+      remainingMonths: remainingMonths == _sentinel
+          ? this.remainingMonths
+          : remainingMonths as int?,
     );
   }
 }
+
+const Object _sentinel = Object();
