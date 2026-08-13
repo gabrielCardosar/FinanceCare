@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/custom_button.dart';
 import '../utils/constants.dart';
 import 'signup_screen.dart';
 
@@ -18,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   final _formKey = GlobalKey<FormState>();
+  bool _showPassword = false;
 
   @override
   void initState() {
@@ -33,141 +31,25 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    if (_formKey.currentState!.validate()) {
-      context.read<AuthProvider>().signIn(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
-    }
+  Future<void> _login() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    await context.read<AuthProvider>().signIn(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
   }
 
-  void _showPrivacyPolicy(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.85,
-        maxChildSize: 0.95,
-        minChildSize: 0.5,
-        builder: (_, scrollCtrl) => Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  const Icon(Icons.privacy_tip_outlined,
-                      color: AppColors.primary),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Termos de Privacidade',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            Expanded(
-              child: ListView(
-                controller: scrollCtrl,
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                children: const [
-                  _PrivacySection(
-                    title: '1. Coleta de Dados',
-                    content:
-                        'O Finance Care coleta apenas as informações necessárias para '
-                        'o funcionamento do aplicativo: seu endereço de e-mail, dados '
-                        'financeiros que você insere manualmente (salário, contas, cartões '
-                        'e assinaturas) e anotações pessoais. Nenhum dado bancário real '
-                        'é acessado ou coletado automaticamente.',
-                  ),
-                  _PrivacySection(
-                    title: '2. Uso dos Dados',
-                    content:
-                        'Seus dados são utilizados exclusivamente para exibir as '
-                        'informações financeiras dentro do aplicativo. Não compartilhamos, '
-                        'vendemos ou cedemos suas informações a terceiros para fins '
-                        'comerciais ou publicitários.',
-                  ),
-                  _PrivacySection(
-                    title: '3. Armazenamento e Segurança',
-                    content:
-                        'Todas as informações são armazenadas de forma segura no '
-                        'Firebase (Google), utilizando criptografia em trânsito (TLS/SSL) '
-                        'e em repouso. O acesso aos seus dados é protegido por autenticação '
-                        'com e-mail e senha.',
-                  ),
-                  _PrivacySection(
-                    title: '4. Relatórios Mensais',
-                    content:
-                        'Os relatórios gerados automaticamente ao início de cada mês '
-                        'ficam armazenados na sua conta e são visíveis apenas para você. '
-                        'Eles não são compartilhados com nenhuma terceira parte.',
-                  ),
-                  _PrivacySection(
-                    title: '5. Seus Direitos',
-                    content:
-                        'Você tem o direito de acessar, corrigir ou excluir qualquer '
-                        'dado armazenado a qualquer momento. A exclusão da conta remove '
-                        'permanentemente todas as suas informações de nossos servidores.',
-                  ),
-                  _PrivacySection(
-                    title: '6. Cookies e Rastreamento',
-                    content:
-                        'O aplicativo não utiliza cookies de rastreamento nem '
-                        'tecnologias de publicidade. Eventuais dados de uso anônimos '
-                        'podem ser coletados pelo Firebase Analytics para melhoria '
-                        'do serviço, sem identificação pessoal.',
-                  ),
-                  _PrivacySection(
-                    title: '7. Alterações nesta Política',
-                    content:
-                        'Podemos atualizar esta política periodicamente. Em caso de '
-                        'mudanças significativas, você será notificado dentro do '
-                        'aplicativo. O uso continuado do Finance Care após as '
-                        'alterações implica aceitação dos novos termos.',
-                  ),
-                  _PrivacySection(
-                    title: '8. Contato',
-                    content:
-                        'Para dúvidas, solicitações ou reclamações relacionadas à '
-                        'privacidade dos seus dados, entre em contato pelo e-mail '
-                        'suporte@financecare.app.',
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Última atualização: Junho de 2025',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _loginWithGoogle() async {
+    final success = await context.read<AuthProvider>().signInWithGoogle();
+    if (!success && mounted) {
+      final error = context.read<AuthProvider>().error;
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: AppColors.danger),
+        );
+        context.read<AuthProvider>().clearError();
+      }
+    }
   }
 
   @override
@@ -184,175 +66,176 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 40),
+
+                // Logo e título
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.trending_up,
-                        size: 40, color: AppColors.primary),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Center(
-                  child: Text(
-                    'Finance Care',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'Gerencie suas finanças com facilidade',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark
-                              ? AppColors.darkSubText
-                              : AppColors.lightSubText,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
                         ),
+                        child: const Icon(Icons.account_balance_wallet,
+                            color: AppColors.primary, size: 44),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Finance Care',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      const SizedBox(height: 6),
+                      Text('Controle suas finanças com facilidade',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isDark ? AppColors.darkSubText : AppColors.lightSubText)),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 48),
-                CustomTextField(
-                  label: 'Email',
-                  hint: 'seu@email.com',
+                const SizedBox(height: 40),
+
+                // Email
+                Text('Email', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  prefixIcon: const Icon(Icons.email),
-                  validator: (value) {
-                    if (value?.isEmpty ?? true) {
-                      return 'Por favor, insira seu email';
-                    }
-                    if (!value!.contains('@')) return 'Email inválido';
+                  decoration: InputDecoration(
+                    hintText: 'seu@email.com',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Insira seu email';
+                    if (!v!.contains('@')) return 'Email inválido';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
-                CustomTextField(
-                  label: 'Senha',
-                  hint: '••••••••',
+
+                // Senha
+                Text('Senha', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                TextFormField(
                   controller: _passwordController,
-                  isPassword: true,
-                  prefixIcon: const Icon(Icons.lock),
-                  validator: (value) {
-                    if (value?.isEmpty ?? true) {
-                      return 'Por favor, insira sua senha';
-                    }
+                  obscureText: !_showPassword,
+                  decoration: InputDecoration(
+                    hintText: '••••••••',
+                    prefixIcon: const Icon(Icons.lock_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                      icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => _showPassword = !_showPassword),
+                    ),
+                  ),
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Insira sua senha';
+                    if (v!.length < 6) return 'Mínimo 6 caracteres';
                     return null;
                   },
                 ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    child: const Text('Esqueci minha senha'),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
+
+                // Botão entrar
                 Consumer<AuthProvider>(
-                  builder: (context, authProvider, _) {
-                    if (authProvider.error != null) {
+                  builder: (context, auth, _) {
+                    if (auth.error != null) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(authProvider.error ?? ''),
-                            backgroundColor: AppColors.danger,
-                          ),
-                        );
-                        authProvider.clearError();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(auth.error!), backgroundColor: AppColors.danger),
+                          );
+                          auth.clearError();
+                        }
                       });
                     }
-                    return CustomButton(
-                      text: 'Entrar',
-                      isLoading: authProvider.isLoading,
-                      onPressed: _login,
+
+                    return Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: auth.isLoading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: auth.isLoading
+                                ? const SizedBox(width: 22, height: 22,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text('Entrar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Divisor
+                        Row(children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('ou', style: TextStyle(color: Colors.grey[500])),
+                          ),
+                          const Expanded(child: Divider()),
+                        ]),
+                        const SizedBox(height: 16),
+
+                        // ✅ Botão Google
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: auth.isLoading ? null : _loginWithGoogle,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.grey[300]!),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: Container(
+                              width: 24, height: 24,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: NetworkImage('https://www.google.com/favicon.ico'),
+                                ),
+                              ),
+                            ),
+                            label: const Text('Continuar com Google',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Não tem uma conta? ',
-                        style: Theme.of(context).textTheme.bodySmall),
-                    TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SignupScreen()),
-                      ),
-                      child: const Text('Cadastre-se'),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 24),
-                // ── Termos de Privacidade ────────────────────────
+
+                // Criar conta
                 Center(
-                  child: RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? AppColors.darkSubText
-                            : AppColors.lightSubText,
-                      ),
-                      children: [
-                        const TextSpan(
-                            text: 'Ao usar o aplicativo você concorda com\nnossas '),
-                        TextSpan(
-                          text: 'Políticas de Privacidade',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
+                  child: TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SignupScreen()),
+                    ),
+                    child: RichText(
+                      text: TextSpan(
+                        text: 'Não tem conta? ',
+                        style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                        children: [
+                          TextSpan(
+                            text: 'Criar conta',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () => _showPrivacyPolicy(context),
-                        ),
-                        const TextSpan(text: '.'),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─── SEÇÃO DE PRIVACIDADE ────────────────────────────────────────────
-
-class _PrivacySection extends StatelessWidget {
-  final String title;
-  final String content;
-  const _PrivacySection({required this.title, required this.content});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.primary)),
-          const SizedBox(height: 6),
-          Text(content,
-              style: const TextStyle(fontSize: 14, height: 1.5)),
-        ],
       ),
     );
   }

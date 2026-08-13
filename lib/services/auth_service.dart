@@ -1,30 +1,26 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
-  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  // ── Email/senha ──────────────────────────────────────────────────────────
 
   Future<UserCredential> signUp({
     required String email,
     required String password,
   }) async {
     try {
-      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return credential;
+      return await _auth.createUserWithEmailAndPassword(
+          email: email, password: password);
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
-      // Bug do firebase_auth 4.x: lança erro PigeonUserDetails mas cria o usuário
-      // Verifica se o usuário foi criado mesmo assim
-      final currentUser = _firebaseAuth.currentUser;
-      if (currentUser != null) {
-        // Usuário criado com sucesso — faz sign in para retornar UserCredential
-        return await _firebaseAuth.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
+      final user = _auth.currentUser;
+      if (user != null) {
+        return await _auth.signInWithEmailAndPassword(
+            email: email, password: password);
       }
       throw 'Erro ao criar conta. Tente novamente.';
     }
@@ -35,10 +31,8 @@ class AuthService {
     required String password,
   }) async {
     try {
-      return await _firebaseAuth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      return await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
@@ -46,17 +40,36 @@ class AuthService {
     }
   }
 
+  // ── Google ───────────────────────────────────────────────────────────────
+
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null; // usuário cancelou
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      return await _auth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw 'Erro ao fazer login com Google. Tente novamente.';
+    }
+  }
+
+  // ── Outros ───────────────────────────────────────────────────────────────
+
   Future<void> signOut() async {
-    await _firebaseAuth.signOut();
+    await _googleSignIn.signOut();
+    await _auth.signOut();
   }
 
-  Stream<User?> authStateChanges() {
-    return _firebaseAuth.authStateChanges();
-  }
+  Stream<User?> authStateChanges() => _auth.authStateChanges();
 
-  User? getCurrentUser() {
-    return _firebaseAuth.currentUser;
-  }
+  User? getCurrentUser() => _auth.currentUser;
 
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
@@ -67,13 +80,15 @@ class AuthService {
       case 'email-already-in-use':
         return 'Este email já está em uso.';
       case 'weak-password':
-        return 'A senha é muito fraca.';
+        return 'A senha é muito fraca (mínimo 6 caracteres).';
       case 'invalid-email':
         return 'Email inválido.';
       case 'invalid-credential':
         return 'Email ou senha incorretos.';
+      case 'account-exists-with-different-credential':
+        return 'Já existe uma conta com este email.';
       default:
         return 'Erro de autenticação: ${e.message}';
     }
   }
-}
+} 

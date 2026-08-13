@@ -12,6 +12,8 @@ import 'providers/monthly_report_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'utils/constants.dart';
+import 'providers/purchases_provider.dart';
+import 'providers/extra_income_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,15 +29,17 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => HomeProvider()),
-        ChangeNotifierProvider(create: (_) => CardsProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionsProvider()),
-        ChangeNotifierProvider(create: (_) => BillsPayableProvider()),
-        ChangeNotifierProvider(create: (_) => NotesProvider()),
-        ChangeNotifierProvider(create: (_) => MonthlyReportProvider()),
-      ],
+    providers: [
+  ChangeNotifierProvider(create: (_) => AuthProvider()),
+  ChangeNotifierProvider(create: (_) => HomeProvider()),
+  ChangeNotifierProvider(create: (_) => CardsProvider()),
+  ChangeNotifierProvider(create: (_) => SubscriptionsProvider()),
+  ChangeNotifierProvider(create: (_) => BillsPayableProvider()),
+  ChangeNotifierProvider(create: (_) => NotesProvider()),
+  ChangeNotifierProvider(create: (_) => MonthlyReportProvider()),
+  ChangeNotifierProvider(create: (_) => PurchasesProvider()),
+  ChangeNotifierProvider(create: (_) => ExtraIncomeProvider()),
+],
       child: MaterialApp(
         title: 'Finance Care',
         debugShowCheckedModeBanner: false,
