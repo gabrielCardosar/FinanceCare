@@ -58,6 +58,16 @@ void main() {
       final c = _card(closing: 31, due: 8);
       expect(c.closingDateOf(const InvoiceMonth(2026, 2)), DateTime(2026, 2, 28));
     });
+    test('vencimento antes do fechamento continua no mês seguinte em fevereiro', () {
+      final c = _card(closing: 30, due: 29);
+      expect(c.closingDateOf(const InvoiceMonth(2026, 2)), DateTime(2026, 2, 28));
+      expect(c.dueDateOf(const InvoiceMonth(2026, 2)), DateTime(2026, 3, 29));
+      expect(c.dueDateOf(const InvoiceMonth(2026, 1)), DateTime(2026, 2, 28));
+    });
+    test('sem dia de fechamento vence no mês seguinte', () {
+      final c = _card(closing: null, due: 31);
+      expect(c.dueDateOf(const InvoiceMonth(2026, 4)), DateTime(2026, 5, 31));
+    });
     test('sem dia de fechamento acompanha o mês', () {
       final c = _card(closing: null);
       expect(c.invoiceFor(DateTime(2026, 10, 31)), const InvoiceMonth(2026, 10));
@@ -150,6 +160,25 @@ void main() {
       ]);
       expect(l.paidInCalendarMonth(2026, 10), 50);
       expect(l.paidInCalendarMonth(2026, 11), 70);
+    });
+
+    test('pagamento a mais não libera limite extra', () {
+      final l = CardLedger(card: c, transactions: txs, payments: [
+        CardPayment(
+            id: 'p', uid: 'u', cardId: 'c1', amount: 450, invoice: m,
+            date: DateTime(2026, 10, 12)),
+      ]);
+      expect(l.invoiceRemaining(m), 0);
+      expect(l.usedLimit, 200); // só os 300 da fatura de outubro contam
+      expect(l.paidInCalendarMonth(2026, 10), 450); // o saldo reflete o que saiu
+    });
+
+    test('lê parcelas gravadas como número decimal', () {
+      final t = CardTransaction.fromMap({
+        'cardId': 'c1', 'totalAmount': 90, 'installments': 3.0,
+        'purchaseDate': '2026-10-01T00:00:00.000', 'firstInvoice': '2026-10',
+      });
+      expect(t.installments, 3);
     });
 
     test('ignora lançamentos de outros cartões', () {

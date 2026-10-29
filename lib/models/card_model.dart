@@ -152,9 +152,11 @@ class CardModel {
   /// Data de vencimento da fatura que fecha no mês [m].
   /// Se o dia de vencimento é menor ou igual ao de fechamento,
   /// a fatura vence no mês seguinte.
+  /// A comparação usa os dias configurados (não ajustados ao tamanho do
+  /// mês), para a regra não mudar em meses curtos como fevereiro.
   DateTime dueDateOf(InvoiceMonth m) {
     final dueDay = invoiceDueDay ?? 10;
-    final closeDay = closingDateOf(m).day;
+    final closeDay = invoiceClosingDay ?? 31;
     final target = dueDay > closeDay ? m : m.add(1);
     return DateTime(target.year, target.month,
         math.min(dueDay, _daysInMonth(target.year, target.month)));
@@ -307,7 +309,7 @@ class CardTransaction {
       cardId: map['cardId'] ?? '',
       description: map['description'] ?? '',
       totalAmount: (map['totalAmount'] ?? 0).toDouble(),
-      installments: math.max(1, (map['installments'] ?? 1) as int),
+      installments: math.max(1, ((map['installments'] ?? 1) as num).toInt()),
       purchaseDate: date,
       firstInvoice: map['firstInvoice'] != null
           ? InvoiceMonth.parse(map['firstInvoice'])
@@ -445,8 +447,12 @@ class CardLedger {
   double get totalCharged =>
       _round(transactions.fold(0.0, (s, t) => s + t.totalAmount));
 
-  double get totalPaid =>
-      _round(payments.fold(0.0, (s, p) => s + p.amount));
+  /// Total pago que conta para o limite. O que for pago a mais numa fatura
+  /// (por exemplo, se uma compra já paga for apagada) não libera limite extra.
+  double get totalPaid => _round(payments
+      .map((p) => p.invoice)
+      .toSet()
+      .fold(0.0, (s, m) => s + math.min(invoicePaid(m), invoiceTotal(m))));
 
   /// Limite comprometido: tudo que foi comprado (inclusive parcelas
   /// futuras) menos o que já foi pago.

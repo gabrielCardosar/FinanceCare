@@ -11,7 +11,7 @@ import '../models/bill_payable_model.dart';
 import '../utils/constants.dart';
 
 class ChartsScreen extends StatelessWidget {
-  const ChartsScreen({Key? key}) : super(key: key);
+  const ChartsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +66,9 @@ class ChartsScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
+                    color: AppColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Row(children: [
@@ -106,9 +106,9 @@ class ChartsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.08),
+                    color: Colors.orange.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Row(children: [
@@ -196,9 +196,9 @@ class ChartsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withOpacity(0.08),
+                  color: const Color(0xFFD97706).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.3)),
                 ),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   const Text('Total de compras', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -244,7 +244,7 @@ class ChartsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: pct.clamp(0.0, 1.0), minHeight: 6,
-                        backgroundColor: Colors.grey.withOpacity(0.15),
+                        backgroundColor: Colors.grey.withValues(alpha: 0.15),
                         valueColor: AlwaysStoppedAnimation(sub.color),
                       ),
                     ),
@@ -289,7 +289,7 @@ class _BarRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: LinearProgressIndicator(
           value: pct.clamp(0.0, 1.0), minHeight: 6,
-          backgroundColor: Colors.grey.withOpacity(0.15),
+          backgroundColor: Colors.grey.withValues(alpha: 0.15),
           valueColor: AlwaysStoppedAnimation(color),
         ),
       ),
@@ -311,7 +311,7 @@ class _EmptyChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     height: 70, alignment: Alignment.center,
-    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+    decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
     child: Text(message, style: const TextStyle(color: Colors.grey, fontSize: 13)),
   );
 }
@@ -347,7 +347,7 @@ class _PiePainter extends CustomPainter {
       canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweep, true,
           Paint()..color = slice.color..style = PaintingStyle.fill);
       canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweep, true,
-          Paint()..color = Colors.white.withOpacity(0.5)..style = PaintingStyle.stroke..strokeWidth = 2);
+          Paint()..color = Colors.white.withValues(alpha: 0.5)..style = PaintingStyle.stroke..strokeWidth = 2);
       startAngle += sweep;
     }
     canvas.drawCircle(center, radius * 0.55,
@@ -378,9 +378,9 @@ class _UrgencyChart extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: level.color.withOpacity(0.08),
+            color: level.color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: level.color.withOpacity(0.3)),
+            border: Border.all(color: level.color.withValues(alpha: 0.3)),
           ),
           child: Row(children: [
             Icon(level.icon, color: level.color),

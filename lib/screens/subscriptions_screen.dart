@@ -7,7 +7,7 @@ import '../models/subscription_model.dart';
 import '../utils/constants.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
-  const SubscriptionsScreen({Key? key}) : super(key: key);
+  const SubscriptionsScreen({super.key});
 
   @override
   State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
@@ -38,7 +38,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     final descCtrl = TextEditingController(
         text: isEditing ? (subscription.description ?? '') : '');
     int selectedColor =
-        isEditing ? subscription.colorValue : _subColors.first.value;
+        isEditing ? subscription.colorValue : _subColors.first.toARGB32();
 
     showDialog(
       context: context,
@@ -77,10 +77,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: _subColors.map((c) {
-                    final isSelected = c.value == selectedColor;
+                    final isSelected = c.toARGB32() == selectedColor;
                     return GestureDetector(
                       onTap: () =>
-                          setDialog(() => selectedColor = c.value),
+                          setDialog(() => selectedColor = c.toARGB32()),
                       child: Container(
                         width: 32,
                         height: 32,
@@ -93,7 +93,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                      color: c.withOpacity(0.6),
+                                      color: c.withValues(alpha: 0.6),
                                       blurRadius: 6)
                                 ]
                               : null,
@@ -111,7 +111,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
+                    color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Row(
@@ -233,7 +233,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 children: [
                   Icon(Icons.subscriptions,
                       size: 64,
-                      color: AppColors.secondary.withOpacity(0.4)),
+                      color: AppColors.secondary.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
                   const Text('Nenhuma assinatura cadastrada'),
                   const SizedBox(height: 8),
@@ -272,7 +272,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -308,7 +308,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                   color: sub.color, width: 4)),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2)),
                           ],
@@ -317,7 +317,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                           leading: CircleAvatar(
-                            backgroundColor: sub.color.withOpacity(0.15),
+                            backgroundColor: sub.color.withValues(alpha: 0.15),
                             child: Icon(Icons.subscriptions,
                                 color: sub.color, size: 20),
                           ),
@@ -332,7 +332,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
+                                  color: AppColors.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text('Fixa',

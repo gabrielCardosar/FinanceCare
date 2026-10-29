@@ -7,7 +7,7 @@ import '../models/bill_payable_model.dart';
 import '../utils/constants.dart';
 
 class BillsPayableScreen extends StatefulWidget {
-  const BillsPayableScreen({Key? key}) : super(key: key);
+  const BillsPayableScreen({super.key});
 
   @override
   State<BillsPayableScreen> createState() => _BillsPayableScreenState();
@@ -101,13 +101,13 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: isFixed
-                        ? AppColors.primary.withOpacity(0.1)
-                        : Colors.grey.withOpacity(0.06),
+                        ? AppColors.primary.withValues(alpha: 0.1)
+                        : Colors.grey.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                         color: isFixed
-                            ? AppColors.primary.withOpacity(0.4)
-                            : Colors.grey.withOpacity(0.2)),
+                            ? AppColors.primary.withValues(alpha: 0.4)
+                            : Colors.grey.withValues(alpha: 0.2)),
                   ),
                   child: Row(children: [
                     Icon(Icons.push_pin,
@@ -124,7 +124,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                     ])),
                     Switch(
                         value: isFixed,
-                        activeColor: AppColors.primary,
+                        activeThumbColor: AppColors.primary,
                         onChanged: (v) => setDialog(() => isFixed = v)),
                   ]),
                 ),
@@ -145,7 +145,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSel ? level.color : level.color.withOpacity(0.12),
+                              color: isSel ? level.color : level.color.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                               border:
                                   isSel ? Border.all(color: level.color, width: 2) : null,
@@ -254,7 +254,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
     if (bills.isEmpty) {
       return Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.receipt_long, size: 56, color: AppColors.danger.withOpacity(0.3)),
+          Icon(Icons.receipt_long, size: 56, color: AppColors.danger.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           const Text('Nenhuma conta aqui', style: TextStyle(color: Colors.grey)),
         ]),
@@ -278,7 +278,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                 left: BorderSide(
                     color: bill.isPaid ? Colors.grey : bill.urgency.color, width: 4)),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)
+              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)
             ],
           ),
           child: Padding(
@@ -294,8 +294,8 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: bill.isPaid
-                          ? AppColors.success.withOpacity(0.18)
-                          : bill.urgency.color.withOpacity(0.12),
+                          ? AppColors.success.withValues(alpha: 0.18)
+                          : bill.urgency.color.withValues(alpha: 0.12),
                       border: Border.all(
                           color: bill.isPaid ? AppColors.success : bill.urgency.color,
                           width: 2),
@@ -343,7 +343,7 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
-                            color: bill.urgency.color.withOpacity(0.15),
+                            color: bill.urgency.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4)),
                         child: Text(bill.urgency.label,
                             style: TextStyle(

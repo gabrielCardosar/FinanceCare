@@ -5,7 +5,7 @@ import '../utils/constants.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         width: 80, height: 80,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Icon(Icons.account_balance_wallet,

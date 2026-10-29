@@ -7,7 +7,7 @@ class BillsPayableProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<BillPayableModel> _bills = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   List<BillPayableModel> get bills => _bills;
   bool get isLoading => _isLoading;

@@ -8,7 +8,7 @@ import '../models/extra_income_model.dart';
 import '../utils/constants.dart';
 
 class ExtraIncomeScreen extends StatelessWidget {
-  const ExtraIncomeScreen({Key? key}) : super(key: key);
+  const ExtraIncomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class ExtraIncomeScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.success, AppColors.success.withOpacity(0.75)],
+                colors: [AppColors.success, AppColors.success.withValues(alpha: 0.75)],
               ),
             ),
             child: Column(children: [
@@ -49,7 +49,7 @@ class ExtraIncomeScreen extends StatelessWidget {
             child: items.isEmpty
                 ? Center(
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.add_circle, size: 64, color: AppColors.success.withOpacity(0.3)),
+                      Icon(Icons.add_circle, size: 64, color: AppColors.success.withValues(alpha: 0.3)),
                       const SizedBox(height: 16),
                       const Text('Nenhuma renda extra registrada',
                           style: TextStyle(color: Colors.grey)),
@@ -70,14 +70,14 @@ class ExtraIncomeScreen extends StatelessWidget {
                           color: isDark ? AppColors.darkCardBg : AppColors.lightCardBg,
                           borderRadius: BorderRadius.circular(12),
                           border: Border(left: BorderSide(color: AppColors.success, width: 4)),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4)],
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.12),
+                                  color: AppColors.success.withValues(alpha: 0.12),
                                   shape: BoxShape.circle),
                               child: const Icon(Icons.attach_money,
                                   color: AppColors.success, size: 22),
@@ -151,9 +151,9 @@ class ExtraIncomeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.07),
+                color: AppColors.danger.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.danger.withOpacity(0.25)),
+                border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
               ),
               child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -174,9 +174,9 @@ class ExtraIncomeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.07),
+                color: Colors.grey.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.withOpacity(0.25)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
               ),
               child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [

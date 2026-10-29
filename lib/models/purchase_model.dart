@@ -61,7 +61,7 @@ class PurchaseModel {
         ),
         cardId: map['cardId'],
         cardName: map['cardName'],
-        installments: map['installments'] ?? 1,
+        installments: ((map['installments'] ?? 1) as num).toInt(),
         date: map['date'] != null ? DateTime.parse(map['date']) : DateTime.now(),
       );
 

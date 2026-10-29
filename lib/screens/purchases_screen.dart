@@ -9,7 +9,7 @@ import '../utils/constants.dart';
 import '../widgets/card_sheets.dart';
 
 class PurchasesScreen extends StatelessWidget {
-  const PurchasesScreen({Key? key}) : super(key: key);
+  const PurchasesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class PurchasesScreen extends StatelessWidget {
           Container(
             padding:
                 const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            color: AppColors.primary.withOpacity(0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -76,7 +76,7 @@ class PurchasesScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.shopping_cart,
                             size: 64,
-                            color: AppColors.primary.withOpacity(0.3)),
+                            color: AppColors.primary.withValues(alpha: 0.3)),
                         const SizedBox(height: 16),
                         const Text('Nenhuma compra registrada',
                             style: TextStyle(color: Colors.grey)),
@@ -108,7 +108,7 @@ class PurchasesScreen extends StatelessWidget {
                           boxShadow: [
                             BoxShadow(
                                 color:
-                                    Colors.black.withOpacity(0.04),
+                                    Colors.black.withValues(alpha: 0.04),
                                 blurRadius: 4)
                           ],
                         ),
@@ -117,7 +117,7 @@ class PurchasesScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: methodColor.withOpacity(0.12),
+                                  color: methodColor.withValues(alpha: 0.12),
                                   shape: BoxShape.circle),
                               child: Icon(
                                 p.method == PaymentMethod.pix
@@ -320,13 +320,13 @@ class PurchasesScreen extends StatelessWidget {
                                 vertical: 10),
                             decoration: BoxDecoration(
                               color: isSel
-                                  ? color.withOpacity(0.15)
-                                  : Colors.grey.withOpacity(0.07),
+                                  ? color.withValues(alpha: 0.15)
+                                  : Colors.grey.withValues(alpha: 0.07),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                   color: isSel
                                       ? color
-                                      : Colors.grey.withOpacity(0.2),
+                                      : Colors.grey.withValues(alpha: 0.2),
                                   width: isSel ? 1.5 : 1),
                             ),
                             child: Column(children: [
@@ -360,7 +360,7 @@ class PurchasesScreen extends StatelessWidget {
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
                         label: Text('Qual cartão?')),
-                    value: selectedCardId,
+                    initialValue: selectedCardId,
                     items: cards
                         .map((c) => DropdownMenuItem(
                             value: c.id,
