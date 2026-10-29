@@ -98,7 +98,7 @@ class MonthlyReportsScreen extends StatelessWidget {
     final bills = context.read<BillsPayableProvider>().bills;
     final subscriptions =
         context.read<SubscriptionsProvider>().subscriptions;
-    final cards = context.read<CardsProvider>().cards;
+    final cards = context.read<CardsProvider>().ledgers;
 
     await context.read<MonthlyReportProvider>().generateManualReport(
           uid: uid,
@@ -689,7 +689,7 @@ class _CardTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Usado: ${currencyFormat.format(card.usedLimit)}',
+              Text('Fatura: ${currencyFormat.format(card.usedLimit)}',
                   style: const TextStyle(fontSize: 12)),
               Text('Limite: ${currencyFormat.format(card.limit)}',
                   style: const TextStyle(fontSize: 12)),

@@ -395,9 +395,9 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
         title: const Text('Contas a Pagar'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          labelColor: AppColors.primary,
+          indicatorColor: AppColors.primary,
+          dividerColor: Colors.transparent,
           tabs: [
             Tab(text: 'Todas (${allBills.length})'),
             Tab(text: 'Pendentes (${pendingBills.length})'),
@@ -411,10 +411,12 @@ class _BillsPayableScreenState extends State<BillsPayableScreen>
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                    colors: [AppColors.danger, AppColors.danger.withOpacity(0.75)]),
+                gradient: const LinearGradient(
+                    colors: [Color(0xFFEF4444), Color(0xFFF97316)]),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _Stat(label: 'Pendente',

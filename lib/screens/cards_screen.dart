@@ -1,286 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cards_provider.dart';
 import '../models/card_model.dart';
 import '../utils/constants.dart';
+import '../widgets/ui.dart';
+import '../widgets/card_sheets.dart';
+import 'card_invoice_screen.dart';
 
 class CardsScreen extends StatefulWidget {
-  const CardsScreen({Key? key}) : super(key: key);
+  const CardsScreen({super.key});
 
   @override
   State<CardsScreen> createState() => _CardsScreenState();
 }
 
 class _CardsScreenState extends State<CardsScreen> {
-  final _fmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+  final _pageCtrl = PageController(viewportFraction: 0.88);
+  int _page = 0;
 
-  static const List<Color> _cardColors = [
-    Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFF3B82F6),
-    Color(0xFF06B6D4), Color(0xFF10B981), Color(0xFFF59E0B),
-    Color(0xFFEF4444), Color(0xFFEC4899), Color(0xFF64748B),
-    Color(0xFF0F172A),
-  ];
-
-  void _showCardDialog({CardModel? card}) {
-    final isEditing = card != null;
-    final cardNameCtrl = TextEditingController(text: isEditing ? card.cardName : '');
-    final bankNameCtrl = TextEditingController(text: isEditing ? card.bankName : '');
-    final limitCtrl = TextEditingController();
-    final usedLimitCtrl = TextEditingController();
-    final dueDayCtrl = TextEditingController(
-        text: isEditing && card.invoiceDueDay != null ? card.invoiceDueDay.toString() : '');
-    final closingDayCtrl = TextEditingController(
-        text: isEditing && card.invoiceClosingDay != null ? card.invoiceClosingDay.toString() : '');
-    int selectedColor = isEditing ? card.colorValue : _cardColors.first.value;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (ctx, setDialog) => AlertDialog(
-          title: Text(isEditing ? 'Editar Cartão' : 'Adicionar Cartão'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(controller: cardNameCtrl,
-                    decoration: const InputDecoration(label: Text('Nome do cartão')),
-                    onChanged: (_) => setDialog(() {})),
-                const SizedBox(height: 10),
-                TextField(controller: bankNameCtrl,
-                    decoration: const InputDecoration(label: Text('Banco'))),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: limitCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    label: const Text('Limite'), prefixText: 'R\$ ',
-                    hintText: isEditing ? card.limit.toStringAsFixed(2).replaceAll('.', ',') : '0,00',
-                  ),
-                  onTap: () => limitCtrl.selection = TextSelection(baseOffset: 0, extentOffset: limitCtrl.text.length),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: usedLimitCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    label: const Text('Fatura atual'), prefixText: 'R\$ ',
-                    hintText: isEditing ? card.usedLimit.toStringAsFixed(2).replaceAll('.', ',') : '0,00',
-                  ),
-                  onTap: () => usedLimitCtrl.selection = TextSelection(baseOffset: 0, extentOffset: usedLimitCtrl.text.length),
-                ),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(child: TextField(controller: closingDayCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(label: Text('Fecha dia'), hintText: 'Ex: 8'))),
-                  const SizedBox(width: 10),
-                  Expanded(child: TextField(controller: dueDayCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(label: Text('Vence dia'), hintText: 'Ex: 15'))),
-                ]),
-                const SizedBox(height: 14),
-                const Text('Cor do cartão', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(height: 8),
-                Wrap(spacing: 8, runSpacing: 8,
-                  children: _cardColors.map((c) {
-                    final isSel = c.value == selectedColor;
-                    return GestureDetector(
-                      onTap: () => setDialog(() => selectedColor = c.value),
-                      child: Container(width: 32, height: 32,
-                        decoration: BoxDecoration(color: c, shape: BoxShape.circle,
-                          border: isSel ? Border.all(color: Colors.white, width: 2) : null,
-                          boxShadow: isSel ? [BoxShadow(color: c.withOpacity(0.6), blurRadius: 6)] : null),
-                        child: isSel ? const Icon(Icons.check, color: Colors.white, size: 16) : null),
-                    );
-                  }).toList()),
-                const SizedBox(height: 10),
-                // Preview
-                Container(height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Color(selectedColor), Color(selectedColor).withOpacity(0.7)]),
-                    borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(children: [
-                    const Icon(Icons.credit_card, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(cardNameCtrl.text.isEmpty ? 'Pré-visualização' : cardNameCtrl.text,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ])),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            ElevatedButton(
-              onPressed: () {
-                final cardName = cardNameCtrl.text.trim();
-                final bankName = bankNameCtrl.text.trim();
-                final limitText = limitCtrl.text.replaceAll(',', '.');
-                final usedText = usedLimitCtrl.text.replaceAll(',', '.');
-                final limit = limitText.isEmpty ? (isEditing ? card.limit : 0.0) : (double.tryParse(limitText) ?? 0);
-                final usedLimit = usedText.isEmpty ? (isEditing ? card.usedLimit : 0.0) : (double.tryParse(usedText) ?? 0);
-                final dueDay = int.tryParse(dueDayCtrl.text.trim())?.clamp(1, 31);
-                final closingDay = int.tryParse(closingDayCtrl.text.trim())?.clamp(1, 31);
-                if (cardName.isEmpty || bankName.isEmpty || limit == 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preencha todos os campos')));
-                  return;
-                }
-                final uid = context.read<AuthProvider>().user?.uid;
-                if (uid != null) {
-                  if (isEditing) {
-                    context.read<CardsProvider>().updateCard(card.copyWith(
-                      cardName: cardName, bankName: bankName,
-                      limit: limit, usedLimit: usedLimit,
-                      colorValue: selectedColor, invoiceDueDay: dueDay, invoiceClosingDay: closingDay));
-                  } else {
-                    context.read<CardsProvider>().addCard(CardModel(
-                      uid: uid, cardName: cardName, bankName: bankName,
-                      limit: limit, usedLimit: usedLimit,
-                      colorValue: selectedColor, invoiceDueDay: dueDay, invoiceClosingDay: closingDay));
-                  }
-                }
-                Navigator.pop(context);
-              },
-              child: Text(isEditing ? 'Salvar' : 'Adicionar'),
-            ),
-          ],
-        ),
-      ),
-    );
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
   }
 
-  void _showInstallmentDialog(CardModel card) {
-    final descCtrl = TextEditingController();
-    final totalCtrl = TextEditingController();
-    int parcelas = 2;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (ctx, setDialog) => AlertDialog(
-          title: Text('Parcelamento - ${card.cardName}'),
-          content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: descCtrl,
-                  decoration: const InputDecoration(label: Text('Descrição da compra'))),
-              const SizedBox(height: 10),
-              TextField(controller: totalCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(label: Text('Valor total'), prefixText: 'R\$ ', hintText: '0,00'),
-                onTap: () => totalCtrl.selection = TextSelection(baseOffset: 0, extentOffset: totalCtrl.text.length),
-                onChanged: (_) => setDialog(() {})),
-              const SizedBox(height: 14),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Parcelas:', style: TextStyle(fontSize: 13)),
-                Row(children: [
-                  IconButton(icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: parcelas > 2 ? () => setDialog(() => parcelas--) : null),
-                  Text('${parcelas}x', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  IconButton(icon: const Icon(Icons.add_circle_outline),
-                      onPressed: parcelas < 48 ? () => setDialog(() => parcelas++) : null),
-                ]),
-              ]),
-              Builder(builder: (_) {
-                final total = double.tryParse(totalCtrl.text.replaceAll(',', '.')) ?? 0;
-                final per = total > 0 ? total / parcelas : 0;
-                return Container(padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Por parcela:'),
-                    Text(_fmt.format(per), style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ]));
-              }),
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            ElevatedButton(
-              onPressed: () {
-                final total = double.tryParse(totalCtrl.text.replaceAll(',', '.')) ?? 0;
-                final desc = descCtrl.text.trim();
-                if (total == 0 || desc.isEmpty) return;
-                final per = total / parcelas;
-                final inst = CardInstallment(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  description: desc, totalAmount: total,
-                  installmentAmount: per, totalInstallments: parcelas,
-                  remainingInstallments: parcelas, purchaseDate: DateTime.now());
-                context.read<CardsProvider>().updateCard(card.copyWith(
-                  usedLimit: card.usedLimit + per,
-                  installments: [...card.installments, inst]));
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('${parcelas}x de ${_fmt.format(per)} adicionado!'),
-                  backgroundColor: AppColors.success));
-              },
-              child: const Text('Adicionar'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ✅ Pagar fatura: usa o método payInvoice do provider
-  // Isso zera usedLimit, acumula em paidInvoiceAmount (que desconta do saldo)
-  void _showPayInvoiceDialog(CardModel card) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pagar Fatura'),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Cartão: ${card.cardName}'),
-          const SizedBox(height: 8),
-          Text('Valor da fatura: ${_fmt.format(card.usedLimit)}',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.success.withOpacity(0.3))),
-            child: const Row(children: [
-              Icon(Icons.info_outline, color: AppColors.success, size: 16),
-              SizedBox(width: 8),
-              Expanded(child: Text(
-                'O valor será descontado do seu saldo e o limite do cartão será liberado.',
-                style: TextStyle(fontSize: 12))),
-            ])),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            onPressed: () async {
-              await context.read<CardsProvider>().payInvoice(card);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Fatura de ${card.cardName} paga! Saldo atualizado.'),
-                backgroundColor: AppColors.success));
-            },
-            child: const Text('Confirmar Pagamento'),
-          ),
-        ],
-      ),
-    );
-  }
+  String get _uid => context.read<AuthProvider>().user?.uid ?? '';
 
   void _confirmDelete(CardModel card) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Excluir cartão'),
-        content: Text('Excluir "${card.cardName}"?'),
+        content: Text(
+            'Excluir "${card.cardName}"? Todas as compras e pagamentos desse cartão também serão apagados.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () {
-              final uid = context.read<AuthProvider>().user?.uid;
-              if (uid != null) context.read<CardsProvider>().deleteCard(uid, card.id!);
-              Navigator.pop(context);
+              context.read<CardsProvider>().deleteCard(_uid, card.id!);
+              Navigator.pop(ctx);
             },
             child: const Text('Excluir'),
           ),
@@ -289,150 +49,527 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
+  void _openInvoices(CardModel card, [InvoiceMonth? month]) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => CardInvoiceScreen(cardId: card.id!, initialMonth: month)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cards = context.watch<CardsProvider>().cards;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Meus Cartões')),
-      floatingActionButton: FloatingActionButton(onPressed: () => _showCardDialog(), child: const Icon(Icons.add)),
-      body: cards.isEmpty
-          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.credit_card, size: 64, color: AppColors.primary.withOpacity(0.4)),
-              const SizedBox(height: 16),
-              const Text('Nenhum cartão adicionado')]))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: cards.length,
-              itemBuilder: (context, index) {
-                final card = cards[index];
-                final pct = card.percentageUsed;
-                final cardColor = card.color;
-                final darker = HSLColor.fromColor(cardColor)
-                    .withLightness((HSLColor.fromColor(cardColor).lightness - 0.15).clamp(0.0, 1.0)).toColor();
+    final provider = context.watch<CardsProvider>();
+    final ledgers = provider.ledgers;
+    if (_page >= ledgers.length && ledgers.isNotEmpty) _page = ledgers.length - 1;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [cardColor, darker], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: cardColor.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))]),
-                  padding: const EdgeInsets.all(18),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(card.cardName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text(card.bankName, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                      ]),
-                      Row(children: [
-                        IconButton(icon: const Icon(Icons.edit, color: Colors.white70, size: 18), onPressed: () => _showCardDialog(card: card)),
-                        IconButton(icon: const Icon(Icons.delete, color: Colors.white70, size: 18), onPressed: () => _confirmDelete(card)),
-                      ]),
-                    ]),
-                    if (card.invoiceClosingDay != null || card.invoiceDueDay != null) ...[
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        if (card.invoiceClosingDay != null)
-                          _DateChip(label: 'Fecha dia ${card.invoiceClosingDay}', icon: Icons.lock_clock,
-                              urgent: card.daysUntilClosing != null && card.daysUntilClosing! <= 3),
-                        if (card.invoiceClosingDay != null && card.invoiceDueDay != null) const SizedBox(width: 6),
-                        if (card.invoiceDueDay != null)
-                          _DateChip(
-                            label: card.daysUntilInvoice == 0 ? 'Vence HOJE'
-                                : card.daysUntilInvoice != null && card.daysUntilInvoice! < 0 ? 'Venceu!'
-                                : 'Vence dia ${card.invoiceDueDay}',
-                            icon: Icons.calendar_today,
-                            urgent: card.daysUntilInvoice != null && card.daysUntilInvoice! <= 5),
-                      ]),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      _CardInfo(label: 'Limite', value: _fmt.format(card.limit)),
-                      _CardInfo(label: 'Fatura', value: _fmt.format(card.usedLimit), align: CrossAxisAlignment.center),
-                      _CardInfo(label: 'Disponível', value: _fmt.format(card.availableLimit), align: CrossAxisAlignment.end),
-                    ]),
-                    const SizedBox(height: 10),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      const Text('Uso do limite', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text('${pct.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ]),
-                    const SizedBox(height: 6),
-                    ClipRRect(borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: (pct / 100).clamp(0.0, 1.0), minHeight: 8,
-                        backgroundColor: Colors.white30,
-                        valueColor: AlwaysStoppedAnimation(pct > 80 ? AppColors.danger : Colors.white))),
-                    if (card.installments.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Container(padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text('Parcelamentos:', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                          const SizedBox(height: 4),
-                          ...card.installments.map((inst) => Padding(
-                            padding: const EdgeInsets.only(bottom: 3),
-                            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                              Expanded(child: Text(inst.description, style: const TextStyle(color: Colors.white, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                              Text('${inst.remainingInstallments}x ${_fmt.format(inst.installmentAmount)}',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                            ]))),
-                        ])),
-                    ],
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
-                        icon: const Icon(Icons.credit_score, size: 15),
-                        label: const Text('Parcela', style: TextStyle(fontSize: 12)),
-                        onPressed: () => _showInstallmentDialog(card))),
-                      if (card.usedLimit > 0) ...[
-                        const SizedBox(width: 8),
-                        Expanded(child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.greenAccent, side: const BorderSide(color: Colors.greenAccent)),
-                          icon: const Icon(Icons.payment, size: 15),
-                          label: const Text('Pagar Fatura', style: TextStyle(fontSize: 12)),
-                          onPressed: () => _showPayInvoiceDialog(card))),
-                      ],
-                    ]),
-                  ]),
-                );
-              }),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cartões'),
+        actions: [
+          IconButton(
+            tooltip: 'Novo cartão',
+            icon: const Icon(Icons.add_card),
+            onPressed: () => showCardFormSheet(context, uid: _uid),
+          ),
+        ],
+      ),
+      floatingActionButton: ledgers.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => showCardPurchaseSheet(context, ledgers[_page].card),
+              icon: const Icon(Icons.add_shopping_cart),
+              label: const Text('Nova compra'),
+            ),
+      body: ledgers.isEmpty
+          ? EmptyState(
+              icon: Icons.credit_card,
+              title: 'Nenhum cartão ainda',
+              message:
+                  'Cadastre seus cartões para acompanhar faturas, parcelas e limite.',
+              action: FilledButton.icon(
+                onPressed: () => showCardFormSheet(context, uid: _uid),
+                icon: const Icon(Icons.add),
+                label: const Text('Adicionar cartão'),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.only(bottom: 100),
+              children: [
+                _LimitSummary(provider: provider),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 210,
+                  child: PageView.builder(
+                    controller: _pageCtrl,
+                    itemCount: ledgers.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (_, i) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      child: CreditCardVisual(
+                        ledger: ledgers[i],
+                        onTap: () => _openInvoices(ledgers[i].card),
+                      ),
+                    ),
+                  ),
+                ),
+                if (ledgers.length > 1) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      ledgers.length,
+                      (i) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _page ? 20 : 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: i == _page
+                              ? AppColors.primary
+                              : AppColors.border(context),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _CardDetails(
+                    ledger: ledgers[_page],
+                    onEdit: () => showCardFormSheet(context,
+                        uid: _uid, card: ledgers[_page].card),
+                    onDelete: () => _confirmDelete(ledgers[_page].card),
+                    onOpenInvoice: (m) => _openInvoices(ledgers[_page].card, m),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
 
-class _DateChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool urgent;
-  const _DateChip({required this.label, required this.icon, this.urgent = false});
+class _LimitSummary extends StatelessWidget {
+  final CardsProvider provider;
+  const _LimitSummary({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: urgent ? Colors.red.withOpacity(0.35) : Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: Colors.white, size: 12),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
-      ]));
+    final total = provider.totalLimit;
+    final used = provider.totalUsedLimit;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Surface(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+              child: _Metric(
+                  label: 'Limite disponível',
+                  value: Fmt.money(provider.totalAvailable),
+                  color: AppColors.success),
+            ),
+            Expanded(
+              child: _Metric(
+                  label: 'Faturas atuais',
+                  value: Fmt.money(provider.totalCurrentInvoices),
+                  color: AppColors.primary,
+                  end: true),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          ProgressBar(
+              value: total > 0 ? used / total : 0,
+              color: used / (total == 0 ? 1 : total) > 0.85
+                  ? AppColors.danger
+                  : AppColors.primary),
+          const SizedBox(height: 6),
+          Text('${Fmt.money(used)} usados de ${Fmt.money(total)}',
+              style: TextStyle(fontSize: 12, color: AppColors.subText(context))),
+        ]),
+      ),
+    );
   }
 }
 
-class _CardInfo extends StatelessWidget {
+class _Metric extends StatelessWidget {
   final String label;
   final String value;
-  final CrossAxisAlignment align;
-  const _CardInfo({required this.label, required this.value, this.align = CrossAxisAlignment.start});
+  final Color color;
+  final bool end;
+  const _Metric(
+      {required this.label, required this.value, required this.color, this.end = false});
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: align, children: [
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-      const SizedBox(height: 2),
-      Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+    return Column(
+      crossAxisAlignment: end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.subText(context))),
+        const SizedBox(height: 2),
+        Text(value,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+      ],
+    );
+  }
+}
+
+class _CardDetails extends StatelessWidget {
+  final CardLedger ledger;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final ValueChanged<InvoiceMonth> onOpenInvoice;
+
+  const _CardDetails({
+    required this.ledger,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onOpenInvoice,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final card = ledger.card;
+    final current = ledger.currentInvoice();
+    final closed = ledger.unpaidClosedInvoices();
+    final currentStatus = ledger.statusOf(current);
+    final sub = AppColors.subText(context);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // Alertas de faturas fechadas em aberto
+      for (final m in closed)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _ClosedInvoiceAlert(ledger: ledger, month: m),
+        ),
+
+      // Fatura atual
+      Surface(
+        onTap: () => onOpenInvoice(current),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+              child: Text('Fatura de ${current.label}',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            StatusChip(label: currentStatus.label, color: currentStatus.color),
+          ]),
+          const SizedBox(height: 8),
+          Text(Fmt.money(ledger.invoiceRemaining(current)),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 14, runSpacing: 4, children: [
+            _InfoIcon(Icons.lock_clock_outlined,
+                'Fecha ${Fmt.dayMonth(card.closingDateOf(current))}'),
+            _InfoIcon(Icons.event_outlined,
+                'Vence ${Fmt.dayMonth(card.dueDateOf(current))}'),
+            if (card.bestPurchaseDay != null)
+              _InfoIcon(Icons.star_outline, 'Melhor dia: ${card.bestPurchaseDay}'),
+          ]),
+          if (card.invoiceClosingDay == null || card.invoiceDueDay == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Defina os dias de fechamento e vencimento para datas exatas.',
+                style: TextStyle(fontSize: 12, color: sub),
+              ),
+            ),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                label: const Text('Ver fatura'),
+                onPressed: () => onOpenInvoice(current),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+                icon: const Icon(Icons.payments_outlined, size: 18),
+                label: const Text('Pagar'),
+                onPressed: ledger.invoiceRemaining(current) > 0
+                    ? () => showPayInvoiceSheet(context, ledger, current)
+                    : null,
+              ),
+            ),
+          ]),
+        ]),
+      ),
+      const SizedBox(height: 12),
+
+      // Limite
+      Surface(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Expanded(
+                child: Text('Limite', style: TextStyle(fontWeight: FontWeight.w700))),
+            Text('${ledger.percentUsed.toStringAsFixed(0)}% usado',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: ledger.percentUsed > 85 ? AppColors.danger : sub)),
+          ]),
+          const SizedBox(height: 10),
+          ProgressBar(
+              value: ledger.percentUsed / 100,
+              color: ledger.percentUsed > 85 ? AppColors.danger : card.color),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _Small('Usado', Fmt.money(ledger.usedLimit))),
+            Expanded(child: _Small('Disponível', Fmt.money(ledger.availableLimit))),
+            Expanded(child: _Small('Total', Fmt.money(card.limit), end: true)),
+          ]),
+          const SizedBox(height: 8),
+          Text('Parcelas futuras também ocupam o limite até serem pagas.',
+              style: TextStyle(fontSize: 11, color: sub)),
+        ]),
+      ),
+      const SizedBox(height: 12),
+
+      // Próximas faturas
+      _Projection(ledger: ledger, from: current, onTap: onOpenInvoice),
+      const SizedBox(height: 12),
+
+      // Últimas compras
+      Surface(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Últimas compras', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          if (ledger.transactions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text('Nenhuma compra lançada', style: TextStyle(color: sub)),
+            )
+          else
+            ...ledger.transactions.take(6).map((t) => TransactionTile(tx: t, ledger: ledger)),
+        ]),
+      ),
+      const SizedBox(height: 12),
+
+      Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Editar cartão'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Excluir'),
+          ),
+        ),
+      ]),
     ]);
+  }
+}
+
+class _ClosedInvoiceAlert extends StatelessWidget {
+  final CardLedger ledger;
+  final InvoiceMonth month;
+  const _ClosedInvoiceAlert({required this.ledger, required this.month});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ledger.statusOf(month);
+    final color = status.color;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(children: [
+        Icon(status == InvoiceStatus.atrasada
+                ? Icons.error_outline
+                : Icons.schedule_outlined,
+            color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+                status == InvoiceStatus.atrasada
+                    ? 'Fatura de ${month.shortLabel} atrasada'
+                    : 'Fatura de ${month.shortLabel} fechada',
+                style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+            Text(
+                '${Fmt.money(ledger.invoiceRemaining(month))} • vence ${Fmt.dayMonth(ledger.card.dueDateOf(month))}',
+                style: const TextStyle(fontSize: 12)),
+          ]),
+        ),
+        TextButton(
+          onPressed: () => showPayInvoiceSheet(context, ledger, month),
+          child: const Text('Pagar'),
+        ),
+      ]),
+    );
+  }
+}
+
+class _Projection extends StatelessWidget {
+  final CardLedger ledger;
+  final InvoiceMonth from;
+  final ValueChanged<InvoiceMonth> onTap;
+  const _Projection({required this.ledger, required this.from, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = ledger.projection(from, months: 6);
+    final maxV = data.fold<double>(0, (m, e) => e.value > m ? e.value : m);
+    return Surface(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Próximas faturas', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text('Inclui parcelas já lançadas',
+            style: TextStyle(fontSize: 12, color: AppColors.subText(context))),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 120,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: data.map((e) {
+              final h = maxV > 0 ? (e.value / maxV) * 70 : 0.0;
+              final isCurrent = e.key == from;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onTap(e.key),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      FittedBox(
+                        child: Text(
+                          e.value > 0 ? Fmt.money(e.value).replaceAll('R\$', '').trim() : '–',
+                          style: TextStyle(fontSize: 10, color: AppColors.subText(context)),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: h < 4 ? 4 : h,
+                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: isCurrent
+                              ? ledger.card.color
+                              : ledger.card.color.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(e.key.shortLabel,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w500)),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Linha de uma compra no cartão, com opção de excluir.
+class TransactionTile extends StatelessWidget {
+  final CardTransaction tx;
+  final CardLedger ledger;
+  final InvoiceMonth? month;
+
+  const TransactionTile({super.key, required this.tx, required this.ledger, this.month});
+
+  @override
+  Widget build(BuildContext context) {
+    final n = month != null ? tx.installmentNumberIn(month!) : null;
+    final amount = month != null ? tx.amountIn(month!) : tx.totalAmount;
+    final subtitle = tx.installments == 1
+        ? '${Fmt.dayMonth(tx.purchaseDate)} • à vista'
+        : n != null
+            ? '${Fmt.dayMonth(tx.purchaseDate)} • parcela $n/${tx.installments}'
+            : '${Fmt.dayMonth(tx.purchaseDate)} • ${tx.installments}x de ${Fmt.money(tx.regularInstallment)}';
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: IconBadge(
+          tx.installments > 1 ? Icons.view_week_outlined : Icons.shopping_bag_outlined,
+          color: ledger.card.color,
+          size: 38),
+      title: Text(tx.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(Fmt.money(amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, size: 18),
+          onSelected: (_) => _confirmDelete(context),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'delete', child: Text('Excluir compra')),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir compra'),
+        content: Text(tx.installments > 1
+            ? 'Excluir "${tx.description}" e todas as ${tx.installments} parcelas?'
+            : 'Excluir "${tx.description}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () {
+              context.read<CardsProvider>().deleteTransaction(tx.uid, tx.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoIcon extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _InfoIcon(this.icon, this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.subText(context);
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 14, color: c),
+      const SizedBox(width: 4),
+      Text(text, style: TextStyle(fontSize: 12, color: c)),
+    ]);
+  }
+}
+
+class _Small extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool end;
+  const _Small(this.label, this.value, {this.end = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: AppColors.subText(context))),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+      ],
+    );
   }
 }

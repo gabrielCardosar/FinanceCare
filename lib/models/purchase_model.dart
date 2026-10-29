@@ -21,6 +21,7 @@ class PurchaseModel {
   final PaymentMethod method;
   final String? cardId;    // só quando method == cartao
   final String? cardName;  // nome do cartão (para exibir mesmo se o cartão for deletado)
+  final int installments;  // parcelas (só cartão)
   final DateTime date;
 
   PurchaseModel({
@@ -31,8 +32,11 @@ class PurchaseModel {
     required this.method,
     this.cardId,
     this.cardName,
+    this.installments = 1,
     DateTime? date,
   }) : date = date ?? DateTime.now();
+
+  bool get isCard => method == PaymentMethod.cartao;
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -42,6 +46,7 @@ class PurchaseModel {
         'method': method.value,
         'cardId': cardId,
         'cardName': cardName,
+        'installments': installments,
         'date': date.toIso8601String(),
       };
 
@@ -56,6 +61,7 @@ class PurchaseModel {
         ),
         cardId: map['cardId'],
         cardName: map['cardName'],
+        installments: map['installments'] ?? 1,
         date: map['date'] != null ? DateTime.parse(map['date']) : DateTime.now(),
       );
 
@@ -65,6 +71,7 @@ class PurchaseModel {
     PaymentMethod? method,
     String? cardId,
     String? cardName,
+    int? installments,
   }) =>
       PurchaseModel(
         id: id,
@@ -74,6 +81,7 @@ class PurchaseModel {
         method: method ?? this.method,
         cardId: cardId ?? this.cardId,
         cardName: cardName ?? this.cardName,
+        installments: installments ?? this.installments,
         date: date,
       );
 }

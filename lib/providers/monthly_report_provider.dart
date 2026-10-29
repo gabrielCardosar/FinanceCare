@@ -30,7 +30,7 @@ class MonthlyReportProvider extends ChangeNotifier {
     required double salary,
     required List<BillPayableModel> bills,
     required List<SubscriptionModel> subscriptions,
-    required List<CardModel> cards,
+    required List<CardLedger> cards,
   }) async {
     final now = DateTime.now();
     final last = await _firestoreService.getLastReportMonth(uid);
@@ -100,7 +100,7 @@ class MonthlyReportProvider extends ChangeNotifier {
     required double salary,
     required List<BillPayableModel> bills,
     required List<SubscriptionModel> subscriptions,
-    required List<CardModel> cards,
+    required List<CardLedger> cards,
   }) async {
     final now = DateTime.now();
     _isLoading = true;
@@ -134,7 +134,7 @@ class MonthlyReportProvider extends ChangeNotifier {
     required double salary,
     required List<BillPayableModel> bills,
     required List<SubscriptionModel> subscriptions,
-    required List<CardModel> cards,
+    required List<CardLedger> cards,
   }) {
     final id = '$year-${month.toString().padLeft(2, '0')}';
     final totalSubs =
@@ -143,8 +143,10 @@ class MonthlyReportProvider extends ChangeNotifier {
         bills.where((b) => b.isPaid).fold<double>(0, (s, b) => s + b.amount);
     final totalUnpaid =
         bills.where((b) => !b.isPaid).fold<double>(0, (s, b) => s + b.amount);
+    // Fatura de cada cartão referente ao mês do relatório
+    final invoiceMonth = InvoiceMonth(year, month);
     final totalCardUsed =
-        cards.fold<double>(0, (s, c) => s + c.usedLimit);
+        cards.fold<double>(0, (s, l) => s + l.invoiceTotal(invoiceMonth));
     final finalBalance = salary - totalSubs - totalPaid - totalUnpaid;
 
     return MonthlyReportModel(
@@ -174,12 +176,12 @@ class MonthlyReportProvider extends ChangeNotifier {
               ))
           .toList(),
       cards: cards
-          .map((c) => ReportCardItem(
-                cardName: c.cardName,
-                bankName: c.bankName,
-                limit: c.limit,
-                usedLimit: c.usedLimit,
-                colorValue: c.colorValue,
+          .map((l) => ReportCardItem(
+                cardName: l.card.cardName,
+                bankName: l.card.bankName,
+                limit: l.card.limit,
+                usedLimit: l.invoiceTotal(invoiceMonth),
+                colorValue: l.card.colorValue,
               ))
           .toList(),
     );
