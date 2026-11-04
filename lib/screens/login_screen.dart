@@ -71,14 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Center(
                   child: Column(
                     children: [
-                      Container(
-                        width: 80, height: 80,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.account_balance_wallet,
-                            color: AppColors.primary, size: 44),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: Image.asset('assets/icon/icon.png',
+                            width: 88, height: 88),
                       ),
                       const SizedBox(height: 16),
                       Text('Finance Care',
