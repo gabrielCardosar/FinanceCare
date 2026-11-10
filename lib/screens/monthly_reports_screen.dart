@@ -31,7 +31,9 @@ class MonthlyReportsScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: isLoading
+      body: SafeArea(
+        top: false,
+        child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : reports.isEmpty
               ? Center(
@@ -71,6 +73,7 @@ class MonthlyReportsScreen extends StatelessWidget {
                     );
                   },
                 ),
+      ),
     );
   }
 
@@ -273,7 +276,9 @@ class ReportDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(report.monthLabel)),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,6 +429,7 @@ class ReportDetailScreen extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
+      ),
       ),
     );
   }

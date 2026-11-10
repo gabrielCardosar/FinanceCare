@@ -9,10 +9,12 @@ Future<T?> _showSheet<T>(BuildContext context, Widget child) {
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    // viewInsets = teclado; padding = barra de navegação do celular
     builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        padding: EdgeInsets.fromLTRB(
+            20, 0, 20, 24 + MediaQuery.paddingOf(ctx).bottom),
         child: child,
       ),
     ),

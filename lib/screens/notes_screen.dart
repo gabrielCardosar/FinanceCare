@@ -20,7 +20,9 @@ class NotesScreen extends StatelessWidget {
         onPressed: () => _openNote(context, null),
         child: const Icon(Icons.add),
       ),
-      body: notes.isEmpty
+      body: SafeArea(
+        top: false,
+        child: notes.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -104,6 +106,7 @@ class NotesScreen extends StatelessWidget {
                 );
               },
             ),
+      ),
     );
   }
 
@@ -238,7 +241,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ),
         ],
       ),
-      body: Padding(
+      body: SafeArea(
+        top: false,
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -264,6 +269,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

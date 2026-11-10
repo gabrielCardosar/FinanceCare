@@ -48,7 +48,9 @@ class ChartsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Gráficos Financeiros')),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,6 +256,7 @@ class ChartsScreen extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
+      ),
       ),
     );
   }

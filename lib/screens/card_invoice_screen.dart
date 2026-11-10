@@ -46,7 +46,9 @@ class _CardInvoiceScreenState extends State<CardInvoiceScreen> {
         icon: const Icon(Icons.add_shopping_cart),
         label: const Text('Nova compra'),
       ),
-      body: ListView(
+      body: SafeArea(
+        top: false,
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
         children: [
           // Seletor de mês
@@ -165,6 +167,7 @@ class _CardInvoiceScreenState extends State<CardInvoiceScreen> {
             ),
           ],
         ],
+      ),
       ),
     );
   }

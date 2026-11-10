@@ -25,7 +25,9 @@ class ExtraIncomeScreen extends StatelessWidget {
         onPressed: () => _showDialog(context, uid),
         child: const Icon(Icons.add),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           // Banner total
           Container(
@@ -122,6 +124,7 @@ class ExtraIncomeScreen extends StatelessWidget {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

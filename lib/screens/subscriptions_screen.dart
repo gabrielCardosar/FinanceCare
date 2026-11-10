@@ -226,7 +226,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         onPressed: () => _showSubscriptionDialog(),
         child: const Icon(Icons.add),
       ),
-      body: subscriptions.isEmpty
+      body: SafeArea(
+        top: false,
+        child: subscriptions.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -404,6 +406,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 }

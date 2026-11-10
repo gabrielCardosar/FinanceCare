@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
@@ -17,6 +18,8 @@ import 'providers/extra_income_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Desenha atrás das barras do sistema; as telas usam SafeArea
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -46,6 +49,23 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.system,
+        // Barras do sistema transparentes, com ícones claros/escuros conforme o tema
+        builder: (context, child) {
+          final dark = Theme.of(context).brightness == Brightness.dark;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+              statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarIconBrightness:
+                  dark ? Brightness.light : Brightness.dark,
+              systemNavigationBarContrastEnforced: false,
+            ),
+            child: child!,
+          );
+        },
         home: Consumer<AuthProvider>(
           builder: (context, authProvider, _) {
             if (authProvider.isLoading) {
