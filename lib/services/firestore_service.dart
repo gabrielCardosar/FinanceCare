@@ -188,10 +188,11 @@ class FirestoreService {
   /// Deve ser chamado no início de cada mês após salvar o relatório.
   Future<void> resetMonthlyBills(String uid) async {
     try {
+      // Mesma coleção usada pelo BillsPayableProvider
       final snapshot = await _firestore
           .collection('users')
           .doc(uid)
-          .collection('bills_payable')
+          .collection('bills')
           .get();
 
       final batch = _firestore.batch();

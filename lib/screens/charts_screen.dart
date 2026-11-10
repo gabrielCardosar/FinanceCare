@@ -11,43 +11,46 @@ import '../models/bill_payable_model.dart';
 import '../utils/constants.dart';
 
 class ChartsScreen extends StatelessWidget {
-  const ChartsScreen({Key? key}) : super(key: key);
+  const ChartsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final account = context.watch<HomeProvider>().account;
     final subscriptions = context.watch<SubscriptionsProvider>().subscriptions;
-    final cards = context.watch<CardsProvider>().cards;
     final bills = context.watch<BillsPayableProvider>().bills;
     final purchasesProvider = context.watch<PurchasesProvider>();
     final extraIncome = context.watch<ExtraIncomeProvider>().total;
     final fmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
+    final cardsProvider = context.watch<CardsProvider>();
     final salary = account?.salary ?? 0;
     final totalSubs = subscriptions.fold<double>(0, (s, sub) => s + sub.monthlyValue);
     final totalBillsPaid = bills.where((b) => b.isPaid).fold<double>(0, (s, b) => s + b.amount);
     final totalBillsPending = bills.where((b) => !b.isPaid).fold<double>(0, (s, b) => s + b.amount);
-    final totalCardInvoices = cards.fold<double>(0, (s, c) => s + c.usedLimit);
+    // Só faturas PAGAS saem do saldo (mesma regra da tela inicial)
+    final totalCardPaid = cardsProvider.totalPaidThisMonth;
     final totalPurchases = purchasesProvider.total;
+    final totalCashPurchases = purchasesProvider.totalFromBalance;
     final totalIncome = salary + extraIncome;
 
     // Saldo restante após todos os gastos efetivados
-    final remaining = (totalIncome - totalSubs - totalBillsPaid - totalCardInvoices - totalPurchases)
+    final remaining = (totalIncome - totalSubs - totalBillsPaid - totalCardPaid - totalCashPurchases)
         .clamp(0.0, double.infinity);
 
     final pieData = <_PieSlice>[
       _PieSlice(label: 'Disponível', value: remaining, color: AppColors.success),
       _PieSlice(label: 'Assinaturas', value: totalSubs, color: AppColors.warning),
       _PieSlice(label: 'Contas Pagas', value: totalBillsPaid, color: AppColors.danger),
-      _PieSlice(label: 'Faturas Cartão', value: totalCardInvoices, color: AppColors.secondary),
-      _PieSlice(label: 'Compras', value: totalPurchases, color: const Color(0xFFD97706)),
+      _PieSlice(label: 'Faturas Pagas', value: totalCardPaid, color: AppColors.secondary),
+      _PieSlice(label: 'Compras PIX/Dinheiro', value: totalCashPurchases, color: const Color(0xFFD97706)),
     ].where((s) => s.value > 0).toList();
     final total = pieData.fold<double>(0, (s, d) => s + d.value);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Gráficos Financeiros')),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,9 +68,9 @@ class ChartsScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
+                    color: AppColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Row(children: [
@@ -105,9 +108,9 @@ class ChartsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.08),
+                    color: Colors.orange.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Row(children: [
@@ -126,18 +129,20 @@ class ChartsScreen extends StatelessWidget {
             // ── Cartões ──────────────────────────────────────────
             const _SectionTitle('Uso dos Cartões'),
             const SizedBox(height: 12),
-            if (cards.isEmpty)
+            if (cardsProvider.cards.isEmpty)
               const _EmptyChart(message: 'Nenhum cartão cadastrado')
             else
-              ...cards.map((card) {
-                final pct = card.limit > 0 ? (card.usedLimit / card.limit) : 0.0;
+              ...cardsProvider.ledgers.map((ledger) {
+                final card = ledger.card;
+                final current = ledger.currentInvoice();
+                final pct = ledger.percentUsed / 100;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkCardBg : AppColors.lightCardBg,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                    color: AppColors.card(context),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border(context)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -151,32 +156,20 @@ class ChartsScreen extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.bold,
                               color: pct > 0.8 ? AppColors.danger : AppColors.success)),
                     ]),
-                    if (card.installments.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      ...card.installments.map((inst) => Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text('↳ ${inst.description}',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          Text('${inst.remainingInstallments}x ${fmt.format(inst.installmentAmount)}',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                        ]),
-                      )),
-                    ],
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         value: pct.clamp(0.0, 1.0), minHeight: 10,
-                        backgroundColor: Colors.grey.withOpacity(0.2),
+                        backgroundColor: Colors.grey.withValues(alpha: 0.2),
                         valueColor: AlwaysStoppedAnimation(pct > 0.8 ? AppColors.danger : card.color),
                       ),
                     ),
                     const SizedBox(height: 6),
                     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text('Fatura: ${fmt.format(card.usedLimit)}',
+                      Text('Fatura ${current.shortLabel}: ${fmt.format(ledger.invoiceRemaining(current))}',
                           style: const TextStyle(fontSize: 12)),
-                      Text('Limite: ${fmt.format(card.limit)}',
+                      Text('Usado ${fmt.format(ledger.usedLimit)} de ${fmt.format(card.limit)}',
                           style: const TextStyle(fontSize: 12)),
                     ]),
                   ]),
@@ -205,9 +198,9 @@ class ChartsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withOpacity(0.08),
+                  color: const Color(0xFFD97706).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.3)),
                 ),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   const Text('Total de compras', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -253,7 +246,7 @@ class ChartsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: pct.clamp(0.0, 1.0), minHeight: 6,
-                        backgroundColor: Colors.grey.withOpacity(0.15),
+                        backgroundColor: Colors.grey.withValues(alpha: 0.15),
                         valueColor: AlwaysStoppedAnimation(sub.color),
                       ),
                     ),
@@ -263,6 +256,7 @@ class ChartsScreen extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
+      ),
       ),
     );
   }
@@ -298,7 +292,7 @@ class _BarRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: LinearProgressIndicator(
           value: pct.clamp(0.0, 1.0), minHeight: 6,
-          backgroundColor: Colors.grey.withOpacity(0.15),
+          backgroundColor: Colors.grey.withValues(alpha: 0.15),
           valueColor: AlwaysStoppedAnimation(color),
         ),
       ),
@@ -320,7 +314,7 @@ class _EmptyChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     height: 70, alignment: Alignment.center,
-    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+    decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
     child: Text(message, style: const TextStyle(color: Colors.grey, fontSize: 13)),
   );
 }
@@ -356,7 +350,7 @@ class _PiePainter extends CustomPainter {
       canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweep, true,
           Paint()..color = slice.color..style = PaintingStyle.fill);
       canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweep, true,
-          Paint()..color = Colors.white.withOpacity(0.5)..style = PaintingStyle.stroke..strokeWidth = 2);
+          Paint()..color = Colors.white.withValues(alpha: 0.5)..style = PaintingStyle.stroke..strokeWidth = 2);
       startAngle += sweep;
     }
     canvas.drawCircle(center, radius * 0.55,
@@ -387,9 +381,9 @@ class _UrgencyChart extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: level.color.withOpacity(0.08),
+            color: level.color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: level.color.withOpacity(0.3)),
+            border: Border.all(color: level.color.withValues(alpha: 0.3)),
           ),
           child: Row(children: [
             Icon(level.icon, color: level.color),

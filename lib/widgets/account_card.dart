@@ -10,14 +10,14 @@ class AccountCard extends StatelessWidget {
   final IconData? icon;
 
   const AccountCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.value,
     required this.subtitle,
     this.backgroundColor,
     this.valueColor,
     this.icon,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -19,6 +19,10 @@ class PurchasesProvider extends ChangeNotifier {
   double get totalCartao =>
       _purchases.where((p) => p.method == PaymentMethod.cartao).fold(0, (s, p) => s + p.amount);
 
+  // ✅ Só PIX e dinheiro saem do saldo na hora.
+  // Compras no cartão entram na fatura e saem do saldo quando ela é paga.
+  double get totalFromBalance => totalPix + totalDinheiro;
+
   void loadPurchases(String uid) {
     final now = DateTime.now();
     // ✅ Carrega apenas compras do mês atual

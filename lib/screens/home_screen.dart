@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import '../models/card_model.dart';
+import '../models/bill_payable_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../providers/cards_provider.dart';
@@ -10,9 +11,11 @@ import '../providers/notes_provider.dart';
 import '../providers/monthly_report_provider.dart';
 import '../providers/purchases_provider.dart';
 import '../providers/extra_income_provider.dart';
-import '../widgets/account_card.dart';
 import '../utils/constants.dart';
+import '../widgets/ui.dart';
+import '../widgets/card_sheets.dart';
 import 'cards_screen.dart';
+import 'card_invoice_screen.dart';
 import 'subscriptions_screen.dart';
 import 'bills_payable_screen.dart';
 import 'notes_screen.dart';
@@ -22,15 +25,16 @@ import 'calculator_screen.dart';
 import 'purchases_screen.dart';
 import 'extra_income_screen.dart';
 
+/// Tela principal com navegação inferior.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _fmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+  int _tab = 0;
 
   @override
   void initState() {
@@ -54,40 +58,93 @@ class _HomeScreenState extends State<HomeScreen> {
     final account = context.read<HomeProvider>().account;
     final bills = context.read<BillsPayableProvider>().bills;
     final subscriptions = context.read<SubscriptionsProvider>().subscriptions;
-    final cards = context.read<CardsProvider>().cards;
+    final cards = context.read<CardsProvider>();
     await context.read<MonthlyReportProvider>().checkAndGenerateReport(
           uid: uid,
           salary: account?.salary ?? 0,
           bills: bills,
           subscriptions: subscriptions,
-          cards: cards,
+          cards: cards.ledgers,
         );
   }
 
-  void _showSalaryDialog() {
-    final ctrl = TextEditingController();
+  @override
+  Widget build(BuildContext context) {
+    final urgent = context.watch<BillsPayableProvider>().urgentBills.length;
+    final overdueCards = context.watch<CardsProvider>().overdueCount;
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          _Dashboard(onGoToTab: (i) => setState(() => _tab = i)),
+          const CardsScreen(),
+          const BillsPayableScreen(),
+          const _MoreScreen(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        destinations: [
+          const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Início'),
+          NavigationDestination(
+              icon: Badge(
+                  isLabelVisible: overdueCards > 0,
+                  label: Text('$overdueCards'),
+                  child: const Icon(Icons.credit_card_outlined)),
+              selectedIcon: const Icon(Icons.credit_card),
+              label: 'Cartões'),
+          NavigationDestination(
+              icon: Badge(
+                  isLabelVisible: urgent > 0,
+                  label: Text('$urgent'),
+                  child: const Icon(Icons.receipt_long_outlined)),
+              selectedIcon: const Icon(Icons.receipt_long),
+              label: 'Contas'),
+          const NavigationDestination(
+              icon: Icon(Icons.grid_view_outlined),
+              selectedIcon: Icon(Icons.grid_view_rounded),
+              label: 'Mais'),
+        ],
+      ),
+    );
+  }
+}
+
+void _push(BuildContext context, Widget screen) =>
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+
+// ─── Painel inicial ────────────────────────────────────────────────────────
+
+class _Dashboard extends StatelessWidget {
+  final ValueChanged<int> onGoToTab;
+  const _Dashboard({required this.onGoToTab});
+
+  void _showSalaryDialog(BuildContext context) {
     final account = context.read<HomeProvider>().account;
+    final ctrl = TextEditingController(
+        text: account != null && account.salary > 0
+            ? account.salary.toStringAsFixed(2).replaceAll('.', ',')
+            : '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Editar Salário'),
+        title: const Text('Salário mensal'),
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
-          decoration: InputDecoration(
-            prefixText: 'R\$ ',
-            hintText: account?.salary != null && account!.salary > 0
-                ? account.salary.toStringAsFixed(2).replaceAll('.', ',')
-                : '0,00',
-          ),
+          decoration: const InputDecoration(prefixText: 'R\$ ', hintText: '0,00'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
-              final text = ctrl.text.replaceAll(',', '.');
-              final salary = double.tryParse(text);
+              final salary = Fmt.parseMoney(ctrl.text);
               if (salary != null && account != null) {
                 context.read<HomeProvider>().updateAccount(account.copyWith(salary: salary));
               }
@@ -100,281 +157,645 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _navigate(Widget screen) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-
-  @override
-  Widget build(BuildContext context) {
-    final account = context.watch<HomeProvider>().account;
-    final subscriptions = context.watch<SubscriptionsProvider>().subscriptions;
-    final billsProvider = context.watch<BillsPayableProvider>();
-    final cards = context.watch<CardsProvider>().cards;
-    final extraIncome = context.watch<ExtraIncomeProvider>().total;
-    final purchasesTotal = context.watch<PurchasesProvider>().total;
-    final urgentCount = billsProvider.urgentBills.length;
-
-    final salary = account?.salary ?? 0;
-    final totalSubs = subscriptions.fold<double>(0, (s, sub) => s + sub.monthlyValue);
-
-    // ✅ CARTÃO: só desconta do saldo quando a fatura for PAGA
-    // Antes do pagamento, não entra no cálculo do saldo
-    // (o campo paidInvoices seria controlado pelo cards_provider quando o usuário pagar)
-    // Por ora, usedLimit não desconta — só desconta via totalCardPaid
-    final totalCardPaid = context.watch<CardsProvider>().totalPaidInvoices;
-
-    // ✅ Contas pagas descontam
-    final totalBillsPaid = billsProvider.totalPaid;
-
-    // ✅ Compras do mês descontam
-    // ✅ SALDO = salário + renda_extra - assinaturas - contas_pagas - compras - faturas_pagas_cartão
-    final finalBalance = salary + extraIncome
-        - totalSubs
-        - totalBillsPaid
-        - purchasesTotal
-        - totalCardPaid;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Finance Care'), centerTitle: true, elevation: 0),
-      drawer: Drawer(
-        child: Column(
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.secondary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const CircleAvatar(radius: 28, backgroundColor: Colors.white24,
-                      child: Icon(Icons.person, color: Colors.white, size: 32)),
-                  const SizedBox(height: 8),
-                  Text(context.read<AuthProvider>().user?.email ?? '',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  const Text('Finance Care',
-                      style: TextStyle(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _DrawerItem(icon: Icons.home_outlined, label: 'Início',
-                      onTap: () => Navigator.pop(context)),
-                  _DrawerItem(icon: Icons.credit_card_outlined, label: 'Cartões',
-                      onTap: () { Navigator.pop(context); _navigate(const CardsScreen()); }),
-                  _DrawerItem(icon: Icons.subscriptions_outlined, label: 'Assinaturas',
-                      onTap: () { Navigator.pop(context); _navigate(const SubscriptionsScreen()); }),
-                  _DrawerItem(icon: Icons.receipt_long_outlined, label: 'Contas a Pagar',
-                      badge: urgentCount > 0 ? urgentCount.toString() : null,
-                      onTap: () { Navigator.pop(context); _navigate(const BillsPayableScreen()); }),
-                  _DrawerItem(icon: Icons.shopping_bag_outlined, label: 'Compras',
-                      onTap: () { Navigator.pop(context); _navigate(const PurchasesScreen()); }),
-                  _DrawerItem(icon: Icons.add_circle_outline, label: 'Renda Extra',
-                      onTap: () { Navigator.pop(context); _navigate(const ExtraIncomeScreen()); }),
-                  _DrawerItem(icon: Icons.bar_chart_outlined, label: 'Gráficos',
-                      onTap: () { Navigator.pop(context); _navigate(const ChartsScreen()); }),
-                  _DrawerItem(icon: Icons.note_alt_outlined, label: 'Bloco de Notas',
-                      onTap: () { Navigator.pop(context); _navigate(const NotesScreen()); }),
-                  _DrawerItem(icon: Icons.calculate_outlined, label: 'Calculadora',
-                      onTap: () { Navigator.pop(context); _navigate(const CalculatorScreen()); }),
-                  _DrawerItem(icon: Icons.calendar_month_outlined, label: 'Relatórios',
-                      onTap: () { Navigator.pop(context); _navigate(const MonthlyReportsScreen()); }),
-                  const Divider(),
-                  _DrawerItem(icon: Icons.logout, label: 'Sair', color: AppColors.danger,
-                      onTap: () { Navigator.pop(context); context.read<AuthProvider>().signOut(); }),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Resumo Financeiro',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-
-              GestureDetector(
-                onTap: _showSalaryDialog,
-                child: AccountCard(
-                  title: 'Salário',
-                  value: _fmt.format(salary),
-                  subtitle: 'Toque para editar',
-                  valueColor: AppColors.success,
-                  icon: Icons.edit,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              if (extraIncome > 0) ...[
-                GestureDetector(
-                  onTap: () => _navigate(const ExtraIncomeScreen()),
-                  child: AccountCard(
-                    title: 'Renda Extra',
-                    value: _fmt.format(extraIncome),
-                    subtitle: 'Toque para gerenciar',
-                    valueColor: AppColors.success,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              // Faturas dos Cartões (informativo — só desconta quando pago)
-              if (cards.any((c) => c.usedLimit > 0)) ...[
-                AccountCard(
-                  title: 'Faturas dos Cartões',
-                  value: _fmt.format(cards.fold<double>(0, (s, c) => s + c.usedLimit)),
-                  subtitle: 'Será descontado ao pagar a fatura',
-                  valueColor: AppColors.secondary,
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              AccountCard(
-                title: 'Contas a Pagar',
-                value: _fmt.format(billsProvider.totalPending),
-                subtitle: '${billsProvider.pendingBills.length} pendentes'
-                    '${totalBillsPaid > 0 ? ' • ${_fmt.format(totalBillsPaid)} pagos' : ''}',
-                valueColor: AppColors.danger,
-              ),
-              const SizedBox(height: 12),
-
-              if (purchasesTotal > 0) ...[
-                GestureDetector(
-                  onTap: () => _navigate(const PurchasesScreen()),
-                  child: AccountCard(
-                    title: 'Compras do Mês',
-                    value: _fmt.format(purchasesTotal),
-                    subtitle: '${context.watch<PurchasesProvider>().purchases.length} compras • toque para ver',
-                    valueColor: const Color(0xFFD97706),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              AccountCard(
-                title: 'Assinaturas',
-                value: _fmt.format(totalSubs),
-                subtitle: '${subscriptions.length} ativas',
-                valueColor: AppColors.warning,
-              ),
-              const SizedBox(height: 12),
-
-              AccountCard(
-                title: 'Saldo Final',
-                value: _fmt.format(finalBalance),
-                subtitle: finalBalance < 0 ? 'Você está no vermelho!' : 'Saldo disponível',
-                valueColor: finalBalance < 0 ? AppColors.danger : AppColors.success,
-              ),
-              const SizedBox(height: 28),
-
-              Text('Acesso Rápido',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.95,
-                children: [
-                  _QuickCard(icon: Icons.credit_card, label: 'Cartões', color: AppColors.primary, onTap: () => _navigate(const CardsScreen())),
-                  _QuickCard(icon: Icons.subscriptions, label: 'Assinaturas', color: AppColors.secondary, onTap: () => _navigate(const SubscriptionsScreen())),
-                  _QuickCard(icon: Icons.receipt_long, label: 'Contas', color: AppColors.danger,
-                      badge: urgentCount > 0 ? urgentCount.toString() : null,
-                      onTap: () => _navigate(const BillsPayableScreen())),
-                  _QuickCard(icon: Icons.shopping_bag, label: 'Compras', color: const Color(0xFFD97706), onTap: () => _navigate(const PurchasesScreen())),
-                  _QuickCard(icon: Icons.add_circle, label: 'Renda Extra', color: AppColors.success, onTap: () => _navigate(const ExtraIncomeScreen())),
-                  _QuickCard(icon: Icons.bar_chart, label: 'Gráficos', color: const Color(0xFF0891B2), onTap: () => _navigate(const ChartsScreen())),
-                  _QuickCard(icon: Icons.note_alt, label: 'Notas', color: AppColors.warning, onTap: () => _navigate(const NotesScreen())),
-                  _QuickCard(icon: Icons.calculate, label: 'Calculadora', color: const Color(0xFF7C3AED), onTap: () => _navigate(const CalculatorScreen())),
-                  _QuickCard(icon: Icons.calendar_month, label: 'Relatórios', color: Colors.blueGrey, onTap: () => _navigate(const MonthlyReportsScreen())),
-                ],
-              ),
-            ],
+  void _pickCardForPurchase(BuildContext context) {
+    final cards = context.read<CardsProvider>().cards;
+    if (cards.isEmpty) {
+      onGoToTab(1);
+      return;
+    }
+    if (cards.length == 1) {
+      showCardPurchaseSheet(context, cards.first);
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Em qual cartão?',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final String? badge;
-  final Color? color;
-  const _DrawerItem({required this.icon, required this.label, required this.onTap, this.badge, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? Theme.of(context).colorScheme.onSurface;
-    return ListTile(
-      leading: Stack(clipBehavior: Clip.none, children: [
-        Icon(icon, color: c),
-        if (badge != null)
-          Positioned(top: -4, right: -6,
-              child: Container(padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-                  child: Text(badge!, style: const TextStyle(color: Colors.white, fontSize: 9)))),
-      ]),
-      title: Text(label, style: TextStyle(color: c)),
-      onTap: onTap,
-    );
-  }
-}
-
-class _QuickCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  final String? badge;
-  const _QuickCard({required this.icon, required this.label, required this.color, required this.onTap, this.badge});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCardBg : AppColors.lightCardBg,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
-        ),
-        child: Stack(children: [
-          Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: color, size: 26)),
-            const SizedBox(height: 6),
-            Text(label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                textAlign: TextAlign.center),
-          ])),
-          if (badge != null)
-            Positioned(top: 6, right: 6,
-                child: Container(padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-                    child: Text(badge!, style: const TextStyle(color: Colors.white, fontSize: 10)))),
+          ...cards.map((c) => ListTile(
+                leading: IconBadge(Icons.credit_card, color: c.color),
+                title: Text(c.cardName),
+                subtitle: Text(c.bankName),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showCardPurchaseSheet(context, c);
+                },
+              )),
+          const SizedBox(height: 12),
         ]),
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final account = context.watch<HomeProvider>().account;
+    final subs = context.watch<SubscriptionsProvider>().subscriptions;
+    final bills = context.watch<BillsPayableProvider>();
+    final cards = context.watch<CardsProvider>();
+    final extra = context.watch<ExtraIncomeProvider>().total;
+    final purchases = context.watch<PurchasesProvider>();
+
+    final salary = account?.salary ?? 0;
+    final totalSubs = subs.fold<double>(0, (s, sub) => s + sub.monthlyValue);
+    final income = salary + extra;
+
+    // SALDO = renda - assinaturas - contas pagas - compras PIX/dinheiro - faturas pagas no mês
+    // Compras no cartão só saem do saldo quando a fatura é paga.
+    final spent = totalSubs +
+        bills.totalPaid +
+        purchases.totalFromBalance +
+        cards.totalPaidThisMonth;
+    final balance = income - spent;
+    // Previsto: o que sobra depois de pagar contas pendentes e faturas que vencem no mês
+    final forecast = balance - bills.totalPending - cards.totalDueThisMonth;
+
+    final name = (user?.displayName?.trim().isNotEmpty ?? false)
+        ? user!.displayName!.split(' ').first
+        : (user?.email?.split('@').first ?? '');
+    final now = DateTime.now();
+    final upcoming = [...bills.pendingBills]..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        children: [
+          // Cabeçalho
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Olá${name.isNotEmpty ? ', $name' : ''} 👋',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+                Text(InvoiceMonth.fromDate(now).label,
+                    style: TextStyle(color: AppColors.subText(context))),
+              ]),
+            ),
+            IconButton.filledTonal(
+              tooltip: 'Relatórios',
+              icon: const Icon(Icons.insights_outlined),
+              onPressed: () => _push(context, const ChartsScreen()),
+            ),
+          ]),
+          const SizedBox(height: 18),
+
+          // Saldo
+          _BalanceHero(
+            balance: balance,
+            income: income,
+            spent: spent,
+            forecast: forecast,
+            onEditSalary: () => _showSalaryDialog(context),
+          ),
+          const SizedBox(height: 18),
+
+          // Ações rápidas
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _QuickAction(
+                  icon: Icons.add_shopping_cart,
+                  label: 'Compra\nno cartão',
+                  color: AppColors.primary,
+                  onTap: () => _pickCardForPurchase(context)),
+              _QuickAction(
+                  icon: Icons.shopping_bag_outlined,
+                  label: 'Compra\nPIX/dinheiro',
+                  color: AppColors.orange,
+                  onTap: () => _push(context, const PurchasesScreen())),
+              _QuickAction(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Contas\na pagar',
+                  color: AppColors.danger,
+                  onTap: () => onGoToTab(2)),
+              _QuickAction(
+                  icon: Icons.trending_up,
+                  label: 'Renda\nextra',
+                  color: AppColors.success,
+                  onTap: () => _push(context, const ExtraIncomeScreen())),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // Alertas de faturas
+          ..._invoiceAlerts(context, cards),
+
+          // Cartões
+          SectionHeader('Cartões',
+              action: cards.cards.isEmpty ? 'Adicionar' : 'Ver todos',
+              onAction: () => onGoToTab(1)),
+          if (cards.cards.isEmpty)
+            Surface(
+              onTap: () => onGoToTab(1),
+              child: Row(children: [
+                const IconBadge(Icons.add_card, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('Cadastre um cartão para controlar faturas e parcelas',
+                      style: TextStyle(color: AppColors.subText(context))),
+                ),
+              ]),
+            )
+          else
+            SizedBox(
+              height: 170,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: cards.ledgers.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (_, i) {
+                  final l = cards.ledgers[i];
+                  return SizedBox(
+                    width: 270,
+                    child: CreditCardVisual(
+                      ledger: l,
+                      compact: true,
+                      onTap: () =>
+                          _push(context, CardInvoiceScreen(cardId: l.card.id!)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 22),
+
+          // Resumo do mês
+          const SectionHeader('Resumo do mês'),
+          Surface(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Column(children: [
+              _SummaryRow(
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: AppColors.success,
+                  label: 'Salário',
+                  value: salary,
+                  positive: true,
+                  onTap: () => _showSalaryDialog(context)),
+              if (extra > 0)
+                _SummaryRow(
+                    icon: Icons.trending_up,
+                    color: AppColors.success,
+                    label: 'Renda extra',
+                    value: extra,
+                    positive: true,
+                    onTap: () => _push(context, const ExtraIncomeScreen())),
+              _SummaryRow(
+                  icon: Icons.subscriptions_outlined,
+                  color: AppColors.secondary,
+                  label: 'Assinaturas',
+                  detail: '${subs.length} ativas',
+                  value: totalSubs,
+                  onTap: () => _push(context, const SubscriptionsScreen())),
+              _SummaryRow(
+                  icon: Icons.task_alt,
+                  color: AppColors.danger,
+                  label: 'Contas pagas',
+                  detail: '${bills.paidBills.length} de ${bills.bills.length}',
+                  value: bills.totalPaid,
+                  onTap: () => onGoToTab(2)),
+              _SummaryRow(
+                  icon: Icons.shopping_bag_outlined,
+                  color: AppColors.orange,
+                  label: 'Compras PIX/dinheiro',
+                  value: purchases.totalFromBalance,
+                  onTap: () => _push(context, const PurchasesScreen())),
+              _SummaryRow(
+                  icon: Icons.credit_score_outlined,
+                  color: AppColors.primary,
+                  label: 'Faturas pagas',
+                  value: cards.totalPaidThisMonth,
+                  onTap: () => onGoToTab(1),
+                  last: true),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          Surface(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Column(children: [
+              _SummaryRow(
+                  icon: Icons.pending_actions_outlined,
+                  color: AppColors.warning,
+                  label: 'Contas pendentes',
+                  detail: '${bills.pendingBills.length} contas',
+                  value: bills.totalPending,
+                  onTap: () => onGoToTab(2)),
+              _SummaryRow(
+                  icon: Icons.event_outlined,
+                  color: AppColors.info,
+                  label: 'Faturas a vencer no mês',
+                  value: cards.totalDueThisMonth,
+                  onTap: () => onGoToTab(1),
+                  last: true),
+            ]),
+          ),
+
+          // Próximas contas
+          if (upcoming.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            SectionHeader('Próximas contas', action: 'Ver todas', onAction: () => onGoToTab(2)),
+            Surface(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Column(
+                children: upcoming.take(4).map((b) => _BillTile(bill: b)).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _invoiceAlerts(BuildContext context, CardsProvider cards) {
+    final alerts = <Widget>[];
+    for (final l in cards.ledgers) {
+      for (final m in l.unpaidClosedInvoices()) {
+        final status = l.statusOf(m);
+        alerts.add(Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Surface(
+            color: status.color.withValues(alpha: 0.08),
+            onTap: () => showPayInvoiceSheet(context, l, m),
+            child: Row(children: [
+              IconBadge(
+                  status == InvoiceStatus.atrasada
+                      ? Icons.error_outline
+                      : Icons.schedule_outlined,
+                  color: status.color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                      '${l.card.cardName}: fatura ${status == InvoiceStatus.atrasada ? 'atrasada' : 'fechada'}',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(
+                      '${Fmt.money(l.invoiceRemaining(m))} • vence ${Fmt.dayMonth(l.card.dueDateOf(m))}',
+                      style: TextStyle(fontSize: 12, color: AppColors.subText(context))),
+                ]),
+              ),
+              Text('Pagar',
+                  style: TextStyle(color: status.color, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ));
+      }
+    }
+    if (alerts.isNotEmpty) alerts.add(const SizedBox(height: 12));
+    return alerts;
+  }
+}
+
+class _BalanceHero extends StatelessWidget {
+  final double balance;
+  final double income;
+  final double spent;
+  final double forecast;
+  final VoidCallback onEditSalary;
+
+  const _BalanceHero({
+    required this.balance,
+    required this.income,
+    required this.spent,
+    required this.forecast,
+    required this.onEditSalary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final negative = balance < 0;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: negative
+            ? const LinearGradient(
+                colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight)
+            : AppColors.heroGradient,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: (negative ? AppColors.danger : AppColors.primary)
+                .withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Expanded(
+            child: Text('Saldo disponível',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+          ),
+          InkWell(
+            onTap: onEditSalary,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.edit_outlined, size: 14, color: Colors.white),
+                SizedBox(width: 4),
+                Text('Salário',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(Fmt.money(balance),
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800)),
+        ),
+        if (negative)
+          const Text('Você está no vermelho!',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 18),
+        Row(children: [
+          Expanded(child: _HeroStat(icon: Icons.south_west, label: 'Entradas', value: income)),
+          Container(width: 1, height: 34, color: Colors.white24),
+          const SizedBox(width: 14),
+          Expanded(child: _HeroStat(icon: Icons.north_east, label: 'Saídas', value: spent)),
+        ]),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(children: [
+            const Icon(Icons.auto_graph, color: Colors.white70, size: 18),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Previsto no fim do mês',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+            ),
+            Text(Fmt.money(forecast),
+                style: TextStyle(
+                    color: forecast < 0 ? const Color(0xFFFFC9C9) : Colors.white,
+                    fontWeight: FontWeight.w800)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final double value;
+  const _HeroStat({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(6),
+        decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
+        child: Icon(icon, color: Colors.white, size: 14),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(Fmt.money(value),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      ),
+    ]);
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickAction(
+      {required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        width: 78,
+        child: Column(children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.card(context),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border(context)),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.2)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String? detail;
+  final double value;
+  final bool positive;
+  final bool last;
+  final VoidCallback? onTap;
+
+  const _SummaryRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+    this.detail,
+    this.positive = false,
+    this.last = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          border: last
+              ? null
+              : Border(bottom: BorderSide(color: AppColors.border(context))),
+        ),
+        child: Row(children: [
+          IconBadge(icon, color: color, size: 36),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (detail != null)
+                Text(detail!,
+                    style: TextStyle(fontSize: 12, color: AppColors.subText(context))),
+            ]),
+          ),
+          Text(
+            '${positive ? '+' : '-'} ${Fmt.money(value)}',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: positive ? AppColors.success : null,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _BillTile extends StatelessWidget {
+  final BillPayableModel bill;
+  const _BillTile({required this.bill});
+
+  @override
+  Widget build(BuildContext context) {
+    final days = bill.daysUntilDue;
+    final when = bill.isOverdue
+        ? 'Vencida'
+        : days <= 0
+            ? 'Vence hoje'
+            : days == 1
+                ? 'Vence amanhã'
+                : 'Vence ${Fmt.dayMonth(bill.dueDate)}';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      leading: IconBadge(bill.urgency.icon, color: bill.urgency.color, size: 38),
+      title: Text(bill.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(when,
+          style: TextStyle(
+              fontSize: 12, color: bill.isOverdue ? AppColors.danger : null)),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(Fmt.money(bill.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+        IconButton(
+          tooltip: 'Marcar como paga',
+          icon: const Icon(Icons.check_circle_outline, color: AppColors.success),
+          onPressed: () => context.read<BillsPayableProvider>().togglePaid(bill),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Aba "Mais" ────────────────────────────────────────────────────────────
+
+class _MoreScreen extends StatelessWidget {
+  const _MoreScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final items = [
+      _MoreItem(Icons.shopping_bag_outlined, 'Compras', AppColors.orange,
+          () => _push(context, const PurchasesScreen())),
+      _MoreItem(Icons.subscriptions_outlined, 'Assinaturas', AppColors.secondary,
+          () => _push(context, const SubscriptionsScreen())),
+      _MoreItem(Icons.trending_up, 'Renda extra', AppColors.success,
+          () => _push(context, const ExtraIncomeScreen())),
+      _MoreItem(Icons.pie_chart_outline, 'Gráficos', AppColors.info,
+          () => _push(context, const ChartsScreen())),
+      _MoreItem(Icons.calendar_month_outlined, 'Relatórios', const Color(0xFF64748B),
+          () => _push(context, const MonthlyReportsScreen())),
+      _MoreItem(Icons.sticky_note_2_outlined, 'Notas', AppColors.warning,
+          () => _push(context, const NotesScreen())),
+      _MoreItem(Icons.calculate_outlined, 'Calculadora', const Color(0xFF7C3AED),
+          () => _push(context, const CalculatorScreen())),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mais')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Surface(
+            child: Row(children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+                child: const Icon(Icons.person, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(user?.displayName ?? 'Minha conta',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(user?.email ?? '',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: AppColors.subText(context))),
+                ]),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.95,
+            children: items
+                .map((i) => Surface(
+                      padding: const EdgeInsets.all(8),
+                      onTap: i.onTap,
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        IconBadge(i.icon, color: i.color, size: 46),
+                        const SizedBox(height: 8),
+                        Text(i.label,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ]),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
+            icon: const Icon(Icons.logout),
+            label: const Text('Sair da conta'),
+            onPressed: () => context.read<AuthProvider>().signOut(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoreItem {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  _MoreItem(this.icon, this.label, this.color, this.onTap);
 }

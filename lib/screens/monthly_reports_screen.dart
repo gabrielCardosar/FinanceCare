@@ -11,7 +11,7 @@ import '../models/monthly_report_model.dart';
 import '../utils/constants.dart';
 
 class MonthlyReportsScreen extends StatelessWidget {
-  const MonthlyReportsScreen({Key? key}) : super(key: key);
+  const MonthlyReportsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,9 @@ class MonthlyReportsScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: isLoading
+      body: SafeArea(
+        top: false,
+        child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : reports.isEmpty
               ? Center(
@@ -40,7 +42,7 @@ class MonthlyReportsScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.calendar_month,
                           size: 64,
-                          color: AppColors.primary.withOpacity(0.4)),
+                          color: AppColors.primary.withValues(alpha: 0.4)),
                       const SizedBox(height: 16),
                       const Text(
                         'Nenhum relatório ainda',
@@ -71,6 +73,7 @@ class MonthlyReportsScreen extends StatelessWidget {
                     );
                   },
                 ),
+      ),
     );
   }
 
@@ -91,14 +94,14 @@ class MonthlyReportsScreen extends StatelessWidget {
         ],
       ),
     );
-    if (confirm != true) return;
+    if (confirm != true || !context.mounted) return;
 
     final uid = context.read<AuthProvider>().user?.uid ?? '';
     final salary = context.read<HomeProvider>().account?.salary ?? 0;
     final bills = context.read<BillsPayableProvider>().bills;
     final subscriptions =
         context.read<SubscriptionsProvider>().subscriptions;
-    final cards = context.read<CardsProvider>().cards;
+    final cards = context.read<CardsProvider>().ledgers;
 
     await context.read<MonthlyReportProvider>().generateManualReport(
           uid: uid,
@@ -157,7 +160,7 @@ class _ReportCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.05), blurRadius: 6)
+                color: Colors.black.withValues(alpha: 0.05), blurRadius: 6)
           ],
         ),
         padding: const EdgeInsets.all(16),
@@ -177,8 +180,8 @@ class _ReportCard extends StatelessWidget {
                       horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? AppColors.success.withOpacity(0.12)
-                        : AppColors.danger.withOpacity(0.12),
+                        ? AppColors.success.withValues(alpha: 0.12)
+                        : AppColors.danger.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -262,8 +265,7 @@ class _MiniStat extends StatelessWidget {
 
 class ReportDetailScreen extends StatelessWidget {
   final MonthlyReportModel report;
-  const ReportDetailScreen({Key? key, required this.report})
-      : super(key: key);
+  const ReportDetailScreen({super.key, required this.report});
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +276,9 @@ class ReportDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(report.monthLabel)),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,6 +430,7 @@ class ReportDetailScreen extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -493,7 +498,7 @@ class _PillStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text('$label: $value',
@@ -680,7 +685,7 @@ class _CardTile extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct.clamp(0.0, 1.0),
               minHeight: 6,
-              backgroundColor: Colors.grey.withOpacity(0.2),
+              backgroundColor: Colors.grey.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation(
                   pct > 0.8 ? AppColors.danger : cardColor),
             ),
@@ -689,7 +694,7 @@ class _CardTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Usado: ${currencyFormat.format(card.usedLimit)}',
+              Text('Fatura: ${currencyFormat.format(card.usedLimit)}',
                   style: const TextStyle(fontSize: 12)),
               Text('Limite: ${currencyFormat.format(card.limit)}',
                   style: const TextStyle(fontSize: 12)),
@@ -711,7 +716,7 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(label,

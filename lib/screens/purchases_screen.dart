@@ -6,9 +6,10 @@ import '../providers/purchases_provider.dart';
 import '../providers/cards_provider.dart';
 import '../models/purchase_model.dart';
 import '../utils/constants.dart';
+import '../widgets/card_sheets.dart';
 
 class PurchasesScreen extends StatelessWidget {
-  const PurchasesScreen({Key? key}) : super(key: key);
+  const PurchasesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,13 +26,15 @@ class PurchasesScreen extends StatelessWidget {
         onPressed: () => _showDialog(context, uid),
         child: const Icon(Icons.add),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           // Banner totais
           Container(
             padding:
                 const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            color: AppColors.primary.withOpacity(0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -54,6 +57,19 @@ class PurchasesScreen extends StatelessWidget {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: Row(children: [
+              const Icon(Icons.info_outline, size: 15, color: AppColors.info),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'PIX e dinheiro saem do saldo na hora. Compras no cartão entram na fatura.',
+                  style: TextStyle(fontSize: 12, color: AppColors.subText(context)),
+                ),
+              ),
+            ]),
+          ),
           Expanded(
             child: purchases.isEmpty
                 ? Center(
@@ -62,7 +78,7 @@ class PurchasesScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.shopping_cart,
                             size: 64,
-                            color: AppColors.primary.withOpacity(0.3)),
+                            color: AppColors.primary.withValues(alpha: 0.3)),
                         const SizedBox(height: 16),
                         const Text('Nenhuma compra registrada',
                             style: TextStyle(color: Colors.grey)),
@@ -94,7 +110,7 @@ class PurchasesScreen extends StatelessWidget {
                           boxShadow: [
                             BoxShadow(
                                 color:
-                                    Colors.black.withOpacity(0.04),
+                                    Colors.black.withValues(alpha: 0.04),
                                 blurRadius: 4)
                           ],
                         ),
@@ -103,7 +119,7 @@ class PurchasesScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: methodColor.withOpacity(0.12),
+                                  color: methodColor.withValues(alpha: 0.12),
                                   shape: BoxShape.circle),
                               child: Icon(
                                 p.method == PaymentMethod.pix
@@ -128,7 +144,7 @@ class PurchasesScreen extends StatelessWidget {
                                   Text(
                                     p.method == PaymentMethod.cartao &&
                                             p.cardName != null
-                                        ? '${p.method.label} • ${p.cardName}'
+                                        ? '${p.method.label} • ${p.cardName}${p.installments > 1 ? ' • ${p.installments}x' : ''}'
                                         : p.method.label,
                                     style: TextStyle(
                                         fontSize: 12,
@@ -182,6 +198,7 @@ class PurchasesScreen extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -203,6 +220,10 @@ class PurchasesScreen extends StatelessWidget {
               context
                   .read<PurchasesProvider>()
                   .deletePurchase(uid, p.id);
+              // Compra no cartão: remove também o lançamento da fatura
+              if (p.isCard) {
+                context.read<CardsProvider>().deleteTransaction(uid, p.id);
+              }
               Navigator.pop(ctx);
             },
             child: const Text('Excluir'),
@@ -223,7 +244,15 @@ class PurchasesScreen extends StatelessWidget {
         isEditing ? purchase.method : PaymentMethod.pix;
     String? selectedCardId =
         isEditing ? purchase.cardId : null;
-    final cards = context.read<CardsProvider>().cards;
+    int parcelas = isEditing ? purchase.installments : 1;
+    final cardsProvider = context.read<CardsProvider>();
+    final cards = cardsProvider.cards;
+    if (selectedCardId != null && cardsProvider.cardById(selectedCardId) == null) {
+      selectedCardId = null;
+    }
+    if (method == PaymentMethod.cartao && selectedCardId == null && cards.isNotEmpty) {
+      selectedCardId = cards.first.id;
+    }
 
     showDialog(
       context: context,
@@ -258,6 +287,7 @@ class PurchasesScreen extends StatelessWidget {
                   onTap: () => valueCtrl.selection = TextSelection(
                       baseOffset: 0,
                       extentOffset: valueCtrl.text.length),
+                  onChanged: (_) => setDialog(() {}),
                 ),
                 const SizedBox(height: 16),
                 const Text('Forma de pagamento',
@@ -279,8 +309,12 @@ class PurchasesScreen extends StatelessWidget {
                         child: GestureDetector(
                           onTap: () => setDialog(() {
                             method = m;
-                            if (m != PaymentMethod.cartao)
+                            if (m != PaymentMethod.cartao) {
                               selectedCardId = null;
+                            } else if (selectedCardId == null &&
+                                cards.isNotEmpty) {
+                              selectedCardId = cards.first.id;
+                            }
                           }),
                           child: AnimatedContainer(
                             duration:
@@ -289,13 +323,13 @@ class PurchasesScreen extends StatelessWidget {
                                 vertical: 10),
                             decoration: BoxDecoration(
                               color: isSel
-                                  ? color.withOpacity(0.15)
-                                  : Colors.grey.withOpacity(0.07),
+                                  ? color.withValues(alpha: 0.15)
+                                  : Colors.grey.withValues(alpha: 0.07),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                   color: isSel
                                       ? color
-                                      : Colors.grey.withOpacity(0.2),
+                                      : Colors.grey.withValues(alpha: 0.2),
                                   width: isSel ? 1.5 : 1),
                             ),
                             child: Column(children: [
@@ -329,7 +363,7 @@ class PurchasesScreen extends StatelessWidget {
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
                         label: Text('Qual cartão?')),
-                    value: selectedCardId,
+                    initialValue: selectedCardId,
                     items: cards
                         .map((c) => DropdownMenuItem(
                             value: c.id,
@@ -337,6 +371,28 @@ class PurchasesScreen extends StatelessWidget {
                         .toList(),
                     onChanged: (v) =>
                         setDialog(() => selectedCardId = v),
+                  ),
+                  const SizedBox(height: 12),
+                  InstallmentPicker(
+                    value: parcelas,
+                    total: Fmt.parseMoney(valueCtrl.text) ??
+                        (isEditing ? purchase.amount : 0),
+                    onChanged: (v) => setDialog(() => parcelas = v),
+                  ),
+                  if (cardsProvider.cardById(selectedCardId) != null) ...[
+                    const SizedBox(height: 10),
+                    InvoiceHint(
+                      card: cardsProvider.cardById(selectedCardId)!,
+                      date: isEditing ? purchase.date : DateTime.now(),
+                      installments: parcelas,
+                    ),
+                  ],
+                ],
+                if (method == PaymentMethod.cartao && cards.isEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Cadastre um cartão na aba Cartões para lançar compras na fatura.',
+                    style: TextStyle(fontSize: 12, color: AppColors.danger),
                   ),
                 ],
               ],
@@ -349,11 +405,8 @@ class PurchasesScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 final desc = descCtrl.text.trim();
-                final valueText =
-                    valueCtrl.text.replaceAll(',', '.');
-                final value = valueText.isEmpty
-                    ? (isEditing ? purchase.amount : 0.0)
-                    : (double.tryParse(valueText) ?? 0);
+                final parsed = Fmt.parseMoney(valueCtrl.text);
+                final value = parsed ?? (isEditing ? purchase.amount : 0.0);
                 if (desc.isEmpty || value <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -361,44 +414,54 @@ class PurchasesScreen extends StatelessWidget {
                               'Preencha descrição e valor')));
                   return;
                 }
-                final selectedCard = selectedCardId != null &&
-                        cards.isNotEmpty
-                    ? cards.firstWhere(
-                        (c) => c.id == selectedCardId,
-                        orElse: () => cards.first)
+                final selectedCard = method == PaymentMethod.cartao
+                    ? cardsProvider.cardById(selectedCardId)
                     : null;
+                if (method == PaymentMethod.cartao && selectedCard == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Escolha o cartão')));
+                  return;
+                }
 
+                final saved = PurchaseModel(
+                  id: isEditing
+                      ? purchase.id
+                      : DateTime.now().millisecondsSinceEpoch.toString(),
+                  uid: uid,
+                  description: desc,
+                  amount: value,
+                  method: method,
+                  cardId: selectedCard?.id,
+                  cardName: selectedCard?.cardName,
+                  installments: selectedCard != null ? parcelas : 1,
+                  date: isEditing ? purchase.date : null,
+                );
+                final purchasesProvider = context.read<PurchasesProvider>();
                 if (isEditing) {
-                  context.read<PurchasesProvider>().updatePurchase(
-                      purchase.copyWith(
-                          description: desc,
-                          amount: value,
-                          method: method,
-                          cardId: selectedCardId,
-                          cardName: selectedCard?.cardName));
+                  purchasesProvider.updatePurchase(saved);
                 } else {
-                  final newP = PurchaseModel(
-                    id: DateTime.now()
-                        .millisecondsSinceEpoch
-                        .toString(),
-                    uid: uid,
+                  purchasesProvider.addPurchase(saved);
+                }
+
+                // ✅ Cartão: a compra vira um lançamento na fatura (mesmo id).
+                // Não sai do saldo agora — só quando a fatura for paga.
+                // Compras antigas (antes da fatura detalhada) já estão no
+                // "saldo anterior" do cartão e não ganham lançamento novo.
+                final isLegacyCardPurchase = isEditing &&
+                    purchase.isCard &&
+                    !cardsProvider.transactions.any((t) => t.id == purchase.id);
+                if (selectedCard != null && !isLegacyCardPurchase) {
+                  cardsProvider.saveTransaction(cardsProvider.buildTransaction(
+                    id: saved.id,
+                    card: selectedCard,
                     description: desc,
-                    amount: value,
-                    method: method,
-                    cardId: selectedCardId,
-                    cardName: selectedCard?.cardName,
-                  );
-                  context
-                      .read<PurchasesProvider>()
-                      .addPurchase(newP);
-                  // Debita do limite do cartão se for no cartão
-                  if (method == PaymentMethod.cartao &&
-                      selectedCard != null) {
-                    context.read<CardsProvider>().updateCard(
-                        selectedCard.copyWith(
-                            usedLimit:
-                                selectedCard.usedLimit + value));
-                  }
+                    totalAmount: value,
+                    installments: parcelas,
+                    purchaseDate: saved.date,
+                  ));
+                } else if (isEditing && purchase.isCard) {
+                  // Deixou de ser no cartão: remove da fatura
+                  cardsProvider.deleteTransaction(uid, purchase.id);
                 }
                 Navigator.pop(context);
               },

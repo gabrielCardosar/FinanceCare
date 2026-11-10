@@ -7,7 +7,7 @@ import '../models/note_model.dart';
 import '../utils/constants.dart';
 
 class NotesScreen extends StatelessWidget {
-  const NotesScreen({Key? key}) : super(key: key);
+  const NotesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,14 +20,16 @@ class NotesScreen extends StatelessWidget {
         onPressed: () => _openNote(context, null),
         child: const Icon(Icons.add),
       ),
-      body: notes.isEmpty
+      body: SafeArea(
+        top: false,
+        child: notes.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.note_alt,
                       size: 64,
-                      color: AppColors.warning.withOpacity(0.4)),
+                      color: AppColors.warning.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
                   const Text('Nenhuma nota ainda'),
                   const SizedBox(height: 8),
@@ -56,7 +58,7 @@ class NotesScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 6,
                             offset: const Offset(0, 2)),
                       ],
@@ -104,6 +106,7 @@ class NotesScreen extends StatelessWidget {
                 );
               },
             ),
+      ),
     );
   }
 
@@ -167,7 +170,7 @@ class NotesScreen extends StatelessWidget {
 
 class NoteEditorScreen extends StatefulWidget {
   final NoteModel? note;
-  const NoteEditorScreen({Key? key, this.note}) : super(key: key);
+  const NoteEditorScreen({super.key, this.note});
 
   @override
   State<NoteEditorScreen> createState() => _NoteEditorScreenState();
@@ -238,7 +241,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ),
         ],
       ),
-      body: Padding(
+      body: SafeArea(
+        top: false,
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -264,6 +269,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

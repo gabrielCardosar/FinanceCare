@@ -6,28 +6,30 @@
 
 ##  Telas
 
-| Tela | Descrição |
-|------|-----------|
-| **Home** | Resumo financeiro, saldo disponível e contas a pagar |
-| **Cartões** | Gerenciamento de cartões de crédito com limite e uso |
-| **Assinaturas** | Controle de serviços recorrentes mensais |
-| **Contas a Pagar** | Contas com nível de urgência (Leve / Moderado / Urgente) |
-| **Gráficos** | Visualização da distribuição do salário, uso de cartões e assinaturas |
-| **Notas** | Bloco de notas pessoal |
+| Início | Cartões | Fatura |
+|---|---|---|
+| ![Início](docs/screenshots/1_inicio.png) | ![Cartões](docs/screenshots/2_cartoes.png) | ![Fatura](docs/screenshots/3_fatura.png) |
+
+| Nova compra | Pagar fatura | Tema escuro |
+|---|---|---|
+| ![Nova compra](docs/screenshots/4_nova_compra.png) | ![Pagar fatura](docs/screenshots/6_pagar_fatura.png) | ![Escuro](docs/screenshots/5_inicio_escuro.png) |
+
+O app tem navegação inferior com **Início**, **Cartões**, **Contas** e **Mais** (compras, assinaturas, renda extra, gráficos, relatórios, notas e calculadora).
 
 ---
 
-##  Funcionalidades
+##  Lógica do cartão de crédito
 
--  Autenticação com e-mail e senha (Firebase Auth)
--  Cadastro de salário e resumo financeiro em tempo real
--  Cartões de crédito com limite, uso e cores personalizadas
--  Assinaturas mensais com visualização proporcional
--  Contas a pagar com data de vencimento e urgência colorida
--  Gráficos: pizza de distribuição do salário + barras de uso por cartão
--  Bloco de notas com criação, edição e exclusão
--  Suporte a tema claro e escuro (automático pelo sistema)
--  Dados salvos em tempo real no Firestore
+- **Compra no cartão não sai do saldo na hora.** Ela entra na fatura; o saldo só diminui quando você **paga a fatura** (na data do pagamento).
+- **Fechamento e vencimento:** compras feitas *a partir* do dia de fechamento vão para a fatura seguinte. Se o dia de vencimento é menor ou igual ao de fechamento, a fatura vence no mês seguinte. O dia de fechamento é o "melhor dia de compra".
+- **Parcelamento (até 24x):** cada parcela cai em uma fatura consecutiva. Os centavos que sobram da divisão vão para a 1ª parcela.
+- **Limite:** o limite usado é tudo que foi comprado (inclusive parcelas futuras) menos o que já foi pago. Pagar uma fatura libera exatamente o valor pago.
+- **Status da fatura:** *Aberta* → *Fechada* (após o fechamento) → *Atrasada* (após o vencimento sem pagamento total) ou *Paga*.
+- **Pagamento parcial ou antecipado** é permitido; o restante continua em aberto. Pagamentos podem ser desfeitos.
+- **Saldo** = salário + renda extra − assinaturas − contas pagas − compras PIX/dinheiro − faturas pagas no mês.
+- **Previsto no fim do mês** = saldo − contas pendentes − faturas que vencem no mês.
+
+Cartões do formato antigo (fatura em `usedLimit` + `installments`) são migrados automaticamente na primeira abertura.
 
 ---
 
@@ -184,11 +186,18 @@ users/
     │
     ├── cards/
     │   └── {cardId}/
-    │       ├── cardName: string
-    │       ├── bankName: string
+    │       ├── cardName, bankName: string
     │       ├── limit: number
-    │       ├── usedLimit: number
-    │       └── cardColor: string
+    │       ├── invoiceClosingDay, invoiceDueDay: number
+    │       ├── colorValue: number
+    │       └── ledgerVersion: number
+    │
+    ├── card_transactions/     (compras no cartão)
+    │   └── {id}/ cardId, description, totalAmount, installments,
+    │             purchaseDate, firstInvoice ("YYYY-MM")
+    │
+    ├── card_payments/         (pagamentos de fatura)
+    │   └── {id}/ cardId, amount, date, invoice ("YYYY-MM")
     │
     ├── subscriptions/
     │   └── {subscriptionId}/
